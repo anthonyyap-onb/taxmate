@@ -37,7 +37,7 @@ def test_chip_click_sends_question_and_hides_chips_in_same_rerun(monkeypatch):
     from taxmate.types import TurnResult
     monkeypatch.setenv("OPENAI_API_KEY", "x")
     monkeypatch.setattr("taxmate.config.load_dotenv", lambda *a, **k: None)
-    monkeypatch.setattr("taxmate.live.build_live_deps", lambda s: (None, None))
+    monkeypatch.setattr("taxmate.live.build_live_deps", lambda s, **k: (None, None))
     asked = []
     monkeypatch.setattr("taxmate.pipeline.run_turn", lambda text, *a, **k: asked.append(text) or TurnResult(
         "answer", "Form 2307 is ... [S1]", [], TaxProfile(), {}))
@@ -56,7 +56,7 @@ def test_startup_failure_shows_friendly_error_not_traceback(monkeypatch, caplog)
     from taxmate import copy
     st.cache_resource.clear()  # get_deps is process-global; earlier tests cache fake deps
 
-    def boom(s):
+    def boom(s, **k):
         raise ConnectionError("api.openai.com unreachable")
     monkeypatch.setenv("OPENAI_API_KEY", "x")
     monkeypatch.setattr("taxmate.config.load_dotenv", lambda *a, **k: None)
@@ -85,3 +85,27 @@ def test_calculator_result_renders_as_metric_card(monkeypatch):
     assert values["Estimated total tax"] == "₱76,000.00"
     assert values["8% rate ✓ lowest"] == "₱52,000.00" and values["Graduated + OSD"] == "₱77,500.00"
     assert len(at.metric) == 6  # 3 for the calculation, 3 for the comparison; the failed call renders nothing
+
+
+def test_admin_sidebar_shows_cache_stats_and_clear_button(monkeypatch):
+    import streamlit as st
+    from types import SimpleNamespace as NS
+    st.cache_resource.clear()
+    cleared = []
+    fake_cache = NS(stats=lambda: {"entries": 3, "hits_exact": 2, "hits_semantic": 1, "misses": 4, "stores": 3},
+                    clear=lambda: cleared.append(1))
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+    monkeypatch.setenv("TAXMATE_ADMIN", "1")
+    monkeypatch.setattr("taxmate.config.load_dotenv", lambda *a, **k: None)
+    monkeypatch.setattr("taxmate.live.build_live_deps", lambda s, **k: (NS(cache=fake_cache), None))
+    at = AppTest.from_file("../app.py").run(timeout=30)
+    assert not at.exception
+    assert any("3 entries" in c.value for c in at.sidebar.caption)
+    next(b for b in at.sidebar.button if b.label == "Clear cache").click().run(timeout=30)
+    assert cleared == [1]
+
+
+def test_no_admin_controls_by_default(monkeypatch):
+    monkeypatch.delenv("TAXMATE_ADMIN", raising=False)
+    at = _app_with_messages(monkeypatch, [])
+    assert not [b for b in at.sidebar.button if b.label == "Clear cache"]

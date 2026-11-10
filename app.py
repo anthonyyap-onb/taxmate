@@ -35,6 +35,28 @@ def render_sidebar() -> None:
             st.rerun()
         st.divider()
         st.caption(copy.DISCLAIMER)
+        if settings.admin:
+            render_admin()
+
+
+def render_admin() -> None:
+    """Only with TAXMATE_ADMIN=1. Normal users never see this."""
+    st.divider()
+    st.subheader("Admin")
+    try:
+        cache = get_deps().cache
+    except Exception:
+        st.caption("Cache unavailable (the index failed to load).")
+        return
+    if cache is None:
+        st.caption("Response cache is off.")
+        return
+    s = cache.stats()
+    st.caption(f"Response cache: {s['entries']} entries · {s['hits_exact']} exact hits · "
+               f"{s['hits_semantic']} semantic hits · {s['misses']} misses")
+    if st.button("Clear cache", use_container_width=True):
+        cache.clear()
+        st.toast("Response cache cleared.")
 
 
 settings = load_settings()
@@ -51,7 +73,7 @@ if missing:
 def get_deps():
     from taxmate.live import build_live_deps
     tracing.init(settings)
-    deps, _index = build_live_deps(settings)
+    deps, _index = build_live_deps(settings, response_cache=settings.response_cache)
     return deps
 
 

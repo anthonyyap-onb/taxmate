@@ -15,6 +15,9 @@ from __future__ import annotations
 import math
 from dataclasses import asdict, dataclass, field
 
+# Bump when any rule or output format below changes: it is part of every response-cache key.
+CALCULATOR_VERSION = "1"
+
 VAT_THRESHOLD = 3_000_000.0
 EIGHT_PCT_RATE = 0.08
 EIGHT_PCT_REDUCTION = 250_000.0

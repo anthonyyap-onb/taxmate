@@ -1,0 +1,80 @@
+{
+  "run": "cache-v2",
+  "semantic_threshold": 0.95,
+  "index": {
+    "n_chunks": 247,
+    "cold": "built",
+    "cold_ms": 2531,
+    "warm": "loaded",
+    "warm_ms": 3.9,
+    "cold_tokens": {
+      "prompt": 0,
+      "completion": 0,
+      "embedding": 56707
+    },
+    "cold_est_cost_usd": 0.00113414
+  },
+  "miss": {
+    "n": 10,
+    "median_latency_ms": 4684.0,
+    "mean_cost_usd": 0.00058,
+    "cache_modes": {
+      "miss": 10
+    }
+  },
+  "exact_repeat": {
+    "n": 10,
+    "median_latency_ms": 2246.5,
+    "mean_cost_usd": 0.000179,
+    "cache_modes": {
+      "exact": 10
+    }
+  },
+  "paraphrase": {
+    "n": 10,
+    "median_latency_ms": 4322.5,
+    "mean_cost_usd": 0.000453,
+    "cache_modes": {
+      "semantic": 3,
+      "miss": 7
+    }
+  },
+  "profile_a": {
+    "n": 3,
+    "median_latency_ms": 4347,
+    "mean_cost_usd": 0.000427,
+    "cache_modes": {
+      "miss": 3
+    }
+  },
+  "different_profile": {
+    "n": 3,
+    "median_latency_ms": 3871,
+    "mean_cost_usd": 0.000415,
+    "cache_modes": {
+      "miss": 3
+    }
+  },
+  "paraphrase_cosines": [
+    0.5863,
+    0.8143,
+    0.8959,
+    0.9107,
+    0.9117,
+    0.9307,
+    0.9462,
+    0.9507,
+    0.9781,
+    0.9786
+  ],
+  "near_miss_cosines": [
+    0.7632,
+    0.781,
+    0.7959,
+    0.8261,
+    0.9108,
+    0.9601
+  ],
+  "near_misses_blocked_by_salient_check": 6,
+  "n_near_misses": 6
+}

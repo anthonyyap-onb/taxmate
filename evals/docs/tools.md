@@ -88,6 +88,7 @@ The tool's notes and the UI card both say this.
 | `tools-v3-r1` | + retry fix, comparison hint | 17/17 | 15/17 | 4 | 9/9 | **17/17** | none |
 | `tools-v3-r2` | (repeat) | 17/17 | 16/17 | 3 | 9/9 | **17/17** | none |
 | `tools-v3-r3` | (repeat) | 17/17 | 15/17 | 4 | 9/9 | **17/17** | none |
+| `tools-v4` | "itemize" now counts as stating itemized (found by the [caching benchmark](caching.md)) | 17/17 | 16/17 | 3 | 9/9 | **17/17** | none |
 
 The final version completes all 17 scenarios in 3 of 3 runs. On its own, the model still tries to guess the regime (T07) or the deduction method (T08) in most runs. The gap between "model alone" and "system" is exactly what the code preconditions catch.
 

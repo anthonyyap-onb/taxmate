@@ -1,0 +1,17 @@
+type,a,b,cosine,same_salient
+paraphrase,Who is not qualified to use the 8% income tax rate?,Who isn't allowed to choose the 8% income tax rate?,0.8143,True
+paraphrase,What happens if I qualify for the 8% rate but forgot to signify that I chose it?,I qualify for the 8% rate but forgot to signify my choice. What happens?,0.9462,True
+paraphrase,What is the 8% income tax based on?,What is the base of the 8% income tax?,0.8959,True
+paraphrase,Is a security deposit I receive under a lease part of my gross receipts?,Are security deposits I get under a lease included in my gross receipts?,0.9507,True
+paraphrase,Am I considered self-employed if I work under a contract of service or job order?,"If I work under a job order or contract of service, am I self-employed?",0.9107,True
+paraphrase,What rate will my client withhold from my professional fees if I don't submit a sworn declaration?,"If I don't give my client a sworn declaration, what rate do they withhold from my professional fees?",0.9307,True
+paraphrase,When must my client give me Form 2307?,When is my client required to give me Form 2307?,0.9786,True
+paraphrase,What are the deadlines for filing BIR Form 1701Q?,When are the filing deadlines for BIR Form 1701Q?,0.9781,True
+paraphrase,How much is the Optional Standard Deduction for individuals?,How much is the OSD for individual taxpayers?,0.5863,True
+paraphrase,"Under the EOPT Act, what qualifies me as a micro taxpayer?",What makes me a micro taxpayer under the EOPT Act?,0.9117,True
+near_miss,Can I deduct my rent on the 8% rate?,Can I deduct my rent on graduated rates?,0.781,False
+near_miss,"What is the tax on ₱1,200,000 gross receipts at 8%?","What is the tax on ₱1,500,000 gross receipts at 8%?",0.9108,False
+near_miss,When is Form 1701Q due?,When is Form 2551Q due?,0.8261,False
+near_miss,What is the deadline for the Q1 1701Q?,What is the deadline for the Q3 1701Q?,0.9601,False
+near_miss,"Do purely self-employed individuals get the ₱250,000 reduction?","Do mixed income earners get the ₱250,000 reduction?",0.7632,False
+near_miss,Should I itemize or use OSD with graduated rates?,Should I use OSD with graduated rates?,0.7959,False

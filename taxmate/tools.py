@@ -83,7 +83,7 @@ _UNITS = {"k": 1e3, "thousand": 1e3, "m": 1e6, "mil": 1e6, "million": 1e6}
 _REGIME_WORDS = {"8_percent": re.compile(r"\b8\s*%|\b8\s*percent|eight percent", re.I),
                  "graduated": re.compile(r"graduated", re.I)}
 _DEDUCTION_WORDS = {"osd": re.compile(r"\bosd\b|optional standard", re.I),
-                    "itemized": re.compile(r"itemi[sz]ed", re.I)}
+                    "itemized": re.compile(r"\bitemi[sz]", re.I)}
 PRECONDITION_ERRORS = frozenset({"regime_not_stated", "deduction_method_not_stated", "amount_not_stated",
                                  "negative_amount"})
 _AMOUNT_FIELDS = ("gross_receipts", "itemized_expenses", "non_operating_income", "compensation_income")

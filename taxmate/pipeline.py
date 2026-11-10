@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from taxmate import copy, tracing, usage
+from taxmate.cache import CachedTurn, ResponseCache
+from taxmate.calculator import CALCULATOR_VERSION
 from taxmate.guardrails import check_input
 from taxmate.logging_utils import log_turn
 from taxmate.pii import mask_pii
@@ -40,6 +42,12 @@ class Deps:
     model: str
     threshold: float = 0.47  # tuned in evals/results/threshold-v1 (min in-corpus top score 0.478)
     k: int = 4
+    cache: ResponseCache | None = None  # on in the app, off in evaluation runs
+
+
+def cache_context(deps: Deps, variant: str, profile: TaxProfile) -> str:
+    """Everything besides the question that can change the answer. Part of every response-cache key."""
+    return "|".join([deps.model, PROMPT_VERSION, variant, f"calc{CALCULATOR_VERSION}", profile.model_dump_json()])
 
 
 def _safe(fn: Callable, *args, **kwargs):
@@ -51,7 +59,7 @@ def _safe(fn: Callable, *args, **kwargs):
 
 class _Timer:
     def __init__(self):
-        self.ms: dict[str, int] = {"guard": 0, "profile": 0, "retrieval": 0, "generation": 0}
+        self.ms: dict[str, int] = {"guard": 0, "profile": 0, "retrieval": 0, "cache": 0, "generation": 0}
         self._start = time.perf_counter()
 
     def stage(self, name: str):
@@ -86,9 +94,10 @@ def _run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: De
         "moderation_flagged": False, "topic_category": None, "blocked": False, "block_reason": None,
         "n_chunks": 0, "top_score": None, "fallback": False, "citation_check": "skipped",
         "langfuse_trace_id": None, "error": None, "user_message_masked": "", "kind": None, "retrieved": [],
-        "tool_calls": [],
+        "tool_calls": [], "cache": "off", "cache_similarity": None,
     }
     tools_used: list = []
+    cache_slot: dict = {}  # query + context to store under, set once the cache was consulted and missed
 
     def finish(kind: str, text: str, sources: list[ScoredChunk], prof: TaxProfile) -> TurnResult:
         rec["kind"] = kind
@@ -97,9 +106,20 @@ def _run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: De
         rec["langfuse_trace_id"] = _safe(tracing.current_trace_id)
         _safe(tracing.update_span, input=rec["user_message_masked"], output=text,
               metadata={"kind": kind, "block_reason": rec["block_reason"], "citation_check": rec["citation_check"],
+                        "cache": rec["cache"],
                         "top_score": rec["top_score"], "prompt_version": PROMPT_VERSION, "variant": variant})
         log_turn({**rec, "retrieved": [{k: v for k, v in r.items() if k != "text"} for r in rec["retrieved"]]})
         return TurnResult(kind, text, sources, prof, rec, list(tools_used))
+
+    def served(kind: str, text: str, sources: list[ScoredChunk], prof: TaxProfile) -> TurnResult:
+        """A turn that passed every output check: remember it, then finish."""
+        if cache_slot:
+            try:
+                deps.cache.store(cache_slot["query"], cache_slot["ctx"],
+                                 CachedTurn(kind, text, sources, list(tools_used)))
+            except Exception:
+                rec["cache"] = "error"
+        return finish(kind, text, sources, prof)
 
     text = (user_text or "").strip()
     if not text:
@@ -135,6 +155,29 @@ def _run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: De
 
             with timer.stage("retrieval"):
                 query = deps.rewrite_query(history, masked)
+
+            if deps.cache is not None:
+                # After the guards and the profile update, keyed on the standalone query: a blocked message never
+                # reaches the cache, and "is it required?" is keyed on what "it" means, not on the literal words.
+                ctx = cache_context(deps, variant, profile)
+                with timer.stage("cache"):
+                    try:
+                        hit = deps.cache.lookup(query, ctx)
+                        rec["cache"] = hit.mode if hit else "miss"
+                    except Exception:
+                        hit, rec["cache"] = None, "error"
+                if hit:
+                    rec["cache_similarity"] = hit.similarity
+                    tools_used[:] = hit.turn.tool_calls
+                    rec["tool_calls"] = [t.log_view() for t in hit.turn.tool_calls]
+                    rec["n_chunks"] = len(hit.turn.sources)
+                    rec["retrieved"] = [{"chunk_id": h.chunk.chunk_id, "score": round(h.score, 4)}
+                                        for h in hit.turn.sources]
+                    return finish(hit.turn.kind, hit.turn.text, hit.turn.sources, profile)
+                if rec["cache"] == "miss":
+                    cache_slot.update(query=query, ctx=ctx)
+
+            with timer.stage("retrieval"):
                 hits = deps.retrieve(query, deps.k)
             rec["n_chunks"] = len(hits)
             rec["top_score"] = round(hits[0].score, 4) if hits else None
@@ -154,7 +197,7 @@ def _run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: De
                             rec["moderation_flagged"], rec["blocked"] = True, True
                             rec["block_reason"] = "output_moderation"
                             return finish("blocked", copy.BLOCKED_TEXT, [], profile)
-                        return finish(gen.type, gen.text, [], profile)
+                        return served(gen.type, gen.text, [], profile)
                 if profile != before:  # a statement about the user, not an unanswerable question
                     return finish("smalltalk", copy.PROFILE_ACK_TEXT, [], profile)
                 rec["fallback"] = True
@@ -184,8 +227,8 @@ def _run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: De
                     return finish("blocked", copy.BLOCKED_TEXT, [], profile)
 
             if gen.type == "clarify":
-                return finish("clarify", gen.text, [], profile)
-            return finish("answer", gen.text, [hits[i - 1] for i in gen.cited], profile)
+                return served("clarify", gen.text, [], profile)
+            return served("answer", gen.text, [hits[i - 1] for i in gen.cited], profile)
         except Exception as exc:
             rec["error"] = type(exc).__name__
             return finish("error", copy.ERROR_TEXT, [], profile)

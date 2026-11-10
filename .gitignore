@@ -13,3 +13,4 @@ uv.lock
 # evidence docs for graders (docs/ stays fully private)
 !evals/docs/*.md
 !bir-data/transcribed/*.md
+.cache/

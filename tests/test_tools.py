@@ -107,3 +107,9 @@ def test_zero_gross_receipts_must_also_be_stated():
 def test_regime_error_points_model_back_to_an_existing_comparison():
     err = check_call("calculate_ph_tax", calc(), TaxProfile(), ["₱800,000"])
     assert "compare_regimes" in err["message"]
+
+
+def test_itemize_verb_counts_as_stating_itemized():
+    args = calc(regime="graduated", deduction_method="itemized", itemized_expenses=200000)
+    assert check_call("calculate_ph_tax", args, TaxProfile(tax_regime="graduated"),
+                      ["₱800,000 gross, I itemize ₱200,000 of expenses"]) is None

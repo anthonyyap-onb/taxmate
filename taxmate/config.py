@@ -18,6 +18,11 @@ class Settings:
     chat_model: str
     embed_model: str
     log_level: str
+    cache_dir: str | None = ".cache"          # saved document index; None disables
+    response_cache: bool = True               # the app's answer cache (evaluation runs never use it)
+    semantic_threshold: float | None = 0.95   # cosine for a semantic hit; None = exact match only
+    cache_ttl_days: float = 7
+    admin: bool = False                       # shows the cache stats + "Clear cache" button
 
 
 def _copy_streamlit_secrets_to_env() -> None:
@@ -37,6 +42,19 @@ def _env(name: str, default: str | None = None) -> str | None:
     return value or default
 
 
+_OFF = {"0", "off", "false", "no", "none", ""}
+
+
+def _flag(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    return default if value is None else value.strip().lower() not in _OFF
+
+
+def _optional(name: str, default: str) -> str | None:
+    value = os.environ.get(name, default).strip()
+    return None if value.lower() in _OFF else value
+
+
 def load_settings() -> Settings:
     load_dotenv()
     _copy_streamlit_secrets_to_env()
@@ -48,6 +66,11 @@ def load_settings() -> Settings:
         chat_model=_env("TAXMATE_CHAT_MODEL", "gpt-4o-mini"),
         embed_model=_env("TAXMATE_EMBED_MODEL", "text-embedding-3-small"),
         log_level=_env("TAXMATE_LOG_LEVEL", "INFO"),
+        cache_dir=_optional("TAXMATE_CACHE_DIR", ".cache"),
+        response_cache=_flag("TAXMATE_RESPONSE_CACHE", True),
+        semantic_threshold=(float(v) if (v := _optional("TAXMATE_SEMANTIC_THRESHOLD", "0.95")) else None),
+        cache_ttl_days=float(_env("TAXMATE_CACHE_TTL_DAYS", "7")),
+        admin=_flag("TAXMATE_ADMIN", False),
     )
 
 

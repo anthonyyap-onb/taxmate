@@ -140,7 +140,7 @@ REQUIRED = {"ts", "request_id", "session_id", "latency_ms", "model", "prompt_ver
 def test_record_has_required_fields():
     r = run_turn("x", [], TaxProfile(), fake_deps([]), "s")
     assert REQUIRED <= set(r.record) and r.record["prompt_version"] == PROMPT_VERSION
-    assert set(r.record["latency_ms"]) == {"total", "guard", "profile", "retrieval", "generation"}
+    assert set(r.record["latency_ms"]) == {"total", "guard", "profile", "retrieval", "cache", "generation"}
     assert r.record["retrieved"][0]["chunk_id"] == CHUNK.chunk_id and "text" in r.record["retrieved"][0]
 
 
@@ -235,3 +235,88 @@ def test_citation_retry_that_uses_the_calculator_is_accepted():
                     GenerationResult("answer", "8% isn't available above ₱3M.", [], [CALC])])
     r = run_turn("₱4,000,000 on 8%, how much?", [], TaxProfile(), fake_deps([], generate=gen), "s")
     assert r.kind == "answer" and r.record["citation_check"] == "retry_tool" and r.tool_calls == [CALC]
+
+
+# --- response cache -----------------------------------------------------------------------------------------
+import numpy as np  # noqa: E402
+
+from taxmate.cache import ResponseCache  # noqa: E402
+
+
+def cached_deps(calls, **over):
+    deps = fake_deps(calls, **over)
+    deps.cache = ResponseCache(lambda texts: np.ones((len(texts), 3), dtype=np.float32), "ns",
+                               semantic_threshold=None)
+    return deps
+
+
+def test_cache_off_by_default_is_logged():
+    r = run_turn("What is 2307?", [], TaxProfile(), fake_deps([]), "s")
+    assert r.record["cache"] == "off"
+
+
+def test_repeat_question_hits_cache_and_skips_retrieval_and_generation_but_not_guards():
+    calls = []
+    deps = cached_deps(calls)
+    first = run_turn("What is 2307?", [], TaxProfile(), deps, "s1")
+    calls.clear()
+    second = run_turn("what is 2307", [], TaxProfile(), deps, "s2")
+    assert first.record["cache"] == "miss" and second.record["cache"] == "exact"
+    assert second.kind == "answer" and second.text == first.text and second.sources == first.sources
+    assert {"moderate", "classify_topic", "extract_profile"} <= set(names(calls))
+    assert "retrieve" not in names(calls) and "generate" not in names(calls)
+    assert second.record["latency_ms"]["cache"] >= 0 and second.record["tokens"]["completion"] == 0
+
+
+def test_cache_hit_replays_tool_calls():
+    gen = lambda *a: GenerationResult("answer", "About ₱76,000.", [], [CALC])  # noqa: E731
+    deps = cached_deps([], generate=gen)
+    run_turn("8% on ₱1,200,000, how much?", [], TaxProfile(), deps, "s")
+    r = run_turn("8% on ₱1,200,000, how much?", [], TaxProfile(), deps, "s")
+    assert r.record["cache"] == "exact" and r.tool_calls == [CALC] and r.record["tool_calls"][0]["name"] == "calculate_ph_tax"
+
+
+def test_different_profile_misses():
+    deps = cached_deps([])
+    run_turn("Can I deduct rent?", [], TaxProfile(tax_regime="8_percent"), deps, "s")
+    r = run_turn("Can I deduct rent?", [], TaxProfile(tax_regime="graduated"), deps, "s")
+    assert r.record["cache"] == "miss"
+
+
+def test_key_uses_rewritten_standalone_query():
+    deps = cached_deps([], rewrite_query=lambda h, q: "Is Form 2307 required?" if h else q)
+    hist = [Turn("user", "Tell me about Form 2307"), Turn("assistant", "...")]
+    run_turn("Is it required?", hist, TaxProfile(), deps, "s")
+    r = run_turn("Is Form 2307 required?", [], TaxProfile(), deps, "s")
+    assert r.record["cache"] == "exact"
+
+
+@pytest.mark.parametrize("over,kind", [
+    (dict(classify_topic=lambda t, prev: "off_topic"), "blocked"),
+    (dict(retrieve=lambda q, k: [ScoredChunk(CHUNK, 0.1)]), "fallback"),
+    (dict(generate=lambda *a: GenerationResult("answer", "uncited", [])), "fallback"),
+    (dict(moderate=lambda t: t == "Yes [S1]"), "blocked"),
+])
+def test_only_turns_that_passed_every_check_are_stored(over, kind):
+    deps = cached_deps([], **over)
+    assert run_turn("What is 2307?", [], TaxProfile(), deps, "s").kind == kind
+    assert deps.cache.stats()["stores"] == 0
+
+
+def test_blocked_input_never_looks_up_cache():
+    deps = cached_deps([])
+    run_turn("What is 2307?", [], TaxProfile(), deps, "s")
+    deps.classify_topic = lambda t, prev: "off_topic"
+    r = run_turn("What is 2307?", [], TaxProfile(), deps, "s")
+    assert r.kind == "blocked" and r.record["cache"] == "off" and deps.cache.stats()["hits_exact"] == 0
+
+
+def test_cache_failure_never_breaks_a_turn():
+    deps = cached_deps([])
+
+    def boom(*a):
+        raise RuntimeError("cache down")
+    deps.cache.lookup = boom
+    deps.cache.store = boom
+    r = run_turn("What is 2307?", [], TaxProfile(), deps, "s")
+    assert r.kind == "answer" and r.record["cache"] == "error"

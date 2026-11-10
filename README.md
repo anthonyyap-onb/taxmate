@@ -16,8 +16,9 @@ Each message goes through one guarded pipeline (`taxmate/pipeline.py`):
 4. **Profile update.** Structured extraction of taxpayer type, regime, income source, ₱3M status, and deduction method. The profile is shown in the sidebar.
 5. **Retrieval.** History-aware query rewrite, then FAISS search over 247 chunks from 7 BIR documents. Below the relevance threshold, TaxMate answers "not found in my BIR sources", unless the message is a calculation the tools can answer. For filing/payment-venue questions, the 2024 EOPT "File and Pay Anywhere" rule is always included and marked as superseding the older 2018 rules.
 6. **Generation with calculator tools.** Structured output: an answer with `[S#]` citations, or a clarifying question when a needed profile field is unknown. For any tax amount the model calls `calculate_ph_tax` or `compare_regimes` (`taxmate/calculator.py`). These are deterministic Python built on the BIR rules, so the LLM never does arithmetic. Code-level preconditions block a calculation when the user hasn't stated the regime, the deduction method or the amounts, so the model has to ask. Results are shown as a metric card with a breakdown. See [Calculator tools](evals/docs/tools.md).
-7. **Output checks.** A citation check (one strict retry, then fallback; an answer grounded in a calculator result also passes) and output moderation.
-8. **Logging and tracing.** One JSON log line per turn, plus a Langfuse trace.
+7. **Response cache.** After the guards and profile update, the standalone query is looked up in an exact + semantic cache. The key includes the profile, model, prompt version and corpus fingerprint, and only answers that pass every output check are stored. The document index is saved to disk and re-embedded only when the corpus changes. See [Caching](evals/docs/caching.md).
+8. **Output checks.** A citation check (one strict retry, then fallback; an answer grounded in a calculator result also passes) and output moderation.
+9. **Logging and tracing.** One JSON log line per turn, plus a Langfuse trace.
 
 LangChain is used only for text splitting. The pipeline is plain Python so every step is unit-testable with fakes and visible as its own span in Langfuse.
 
@@ -72,6 +73,7 @@ uv run python -m evals.run_ragas --run v1-deliberate --variant deliberate
 uv run python -m evals.run_guardrail_suite --run guard-v1
 uv run python -m evals.run_memory_suite --run memory-v1
 uv run python -m evals.run_tool_suite --run tools-v3-r1
+uv run python -m evals.run_cache_bench --run cache-v2
 uv run python -m evals.capture_ops_logs > evals/results/ops-logs/turns.jsonl
 ```
 
@@ -84,3 +86,4 @@ uv run python -m evals.capture_ops_logs > evals/results/ops-logs/turns.jsonl
 - [Debugged failure](evals/docs/debugged-failure.md)
 - [Operational readiness (secrets, logging, errors)](evals/docs/operations.md)
 - [Calculator tools & tool-use evaluation](evals/docs/tools.md)
+- [Caching (before/after, invalidation policy)](evals/docs/caching.md)
