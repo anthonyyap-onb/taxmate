@@ -36,6 +36,7 @@ class GenerationResult:
     type: Literal["answer", "clarify"]
     text: str
     cited: list[int] = field(default_factory=list)
+    tool_calls: list = field(default_factory=list)  # taxmate.tools.ToolCall, in call order
 
 
 @dataclass(frozen=True)
@@ -55,3 +56,4 @@ class TurnResult:
     sources: list[ScoredChunk]
     profile: "TaxProfile"
     record: dict
+    tool_calls: list = field(default_factory=list)  # taxmate.tools.ToolCall

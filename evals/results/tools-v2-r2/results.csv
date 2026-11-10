@@ -1,0 +1,58 @@
+id,category,expected_tool,called,kind,model_tool_ok,tool_ok,args_ok,kind_ok,text_ok,complete,response
+T01,calc_8pct,calculate_ph_tax,"calculate_ph_tax({""gross_receipts"": 1200000, ""regime"": ""8_percent"", ""deduction_method"": null, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> ok",answer,True,True,True,True,True,True,"As a purely self-employed freelancer on the 8% rate with gross receipts of ₱1,200,000, your income tax owed is estimated at ₱76,000. This is calculated after applying the ₱250,000 reduction to your gross receipts, resulting in a taxable base of ₱950,000, which is then taxed at 8% [S1, S2]."
+T02,calc_graduated_osd,calculate_ph_tax,"calculate_ph_tax({""gross_receipts"": 1000000, ""regime"": ""graduated"", ""deduction_method"": ""osd"", ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> ok",answer,True,True,True,True,True,True,"Based on your gross receipts of ₱1,000,000 and using the Optional Standard Deduction (OSD) of 40%, your estimated tax will be:
+
+- **Net business income**: ₱600,000
+- **Graduated income tax**: ₱62,500
+- **3% percentage tax**: ₱30,000
+
+**Total tax payable**: ₱92,500
+
+This estimate is for the taxable year 2023 onwards and does not include any tax credits or quarterly payments already made."
+T03,calc_graduated_itemized,calculate_ph_tax,"calculate_ph_tax({""gross_receipts"": 1500000, ""regime"": ""graduated"", ""deduction_method"": ""itemized"", ""itemized_expenses"": 700000, ""non_operating_income"": null, ""compensation_income"": null}) -> ok",answer,True,True,True,True,True,True,"Your total tax under the graduated rates with itemized deductions is estimated at **₱147,500**. This includes **₱102,500** for graduated income tax and **₱45,000** for the 3% percentage tax based on your gross receipts of **₱1,500,000** and itemized deductions of **₱700,000**. This estimate is for the taxable year 2023 onwards and does not account for any tax credits or prior payments made."
+T04,compare,compare_regimes,"compare_regimes({""gross_receipts"": 900000, ""itemized_expenses"": 200000, ""non_operating_income"": null, ""compensation_income"": null}) -> ok; compare_regimes({""gross_receipts"": 900000, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> ok",answer,True,True,True,True,True,True,"For your income of ₱900,000 a year, the 8% tax rate is better. Here’s a comparison:
+
+1. **8% Tax Rate**:
+   - Tax base: ₱650,000 (after ₱250,000 reduction)
+   - Total tax: **₱52,000**
+
+2. **Graduated Rates with Optional Standard Deduction (OSD)**:
+   - Taxable income: ₱540,000 (after 40% OSD)
+   - Total tax: **₱77,500**
+
+3. **Graduated Rates with Itemized Deductions**:
+   - Taxable income: ₱700,000 (after ₱200,000 expenses)
+   - Total tax: **₱109,500**
+
+The 8% option results in the lowest tax liability at **₱52,000**, compared to **₱77,500** and **₱109,500** for the graduated rates. Therefore, the 8% rate is more advantageous for you [S1, S2, S3]."
+T05,compare,compare_regimes,"compare_regimes({""gross_receipts"": 1000000, ""itemized_expenses"": 800000, ""non_operating_income"": null, ""compensation_income"": null}) -> ok; calculate_ph_tax({""gross_receipts"": 1000000, ""regime"": ""8_percent"", ""deduction_method"": null, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> regime_not_stated",clarify,True,True,True,False,False,False,Are you on the 8% tax rate or the graduated rates?
+T06,compare,compare_regimes,"compare_regimes({""gross_receipts"": 2500000, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> ok; compare_regimes({""gross_receipts"": 2500000, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": 0}) -> ok",answer,True,True,True,True,True,True,"Based on your gross receipts of ₱2,500,000, the 8% income tax rate is more beneficial compared to the graduated rates. Here are the estimates:
+
+- **8% Rate**: 
+  - Tax base after ₱250,000 reduction: ₱2,250,000
+  - Total tax: **₱180,000**
+
+- **Graduated Rates with Optional Standard Deduction (OSD)**:
+  - Net business income after 40% OSD: ₱1,500,000
+  - Total tax: **₱352,500**
+
+Thus, the 8% rate is the cheaper option for you, saving you ₱172,500 in taxes compared to the graduated rates [S4]."
+T07,regime_unknown,None,"calculate_ph_tax({""gross_receipts"": 800000, ""regime"": ""8_percent"", ""deduction_method"": null, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> regime_not_stated",clarify,False,True,,True,True,True,Are you on the 8% tax rate or the graduated rates?
+T08,missing_input,None,"calculate_ph_tax({""gross_receipts"": 1000000, ""regime"": ""graduated"", ""deduction_method"": null, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> deduction_method_not_stated; calculate_ph_tax({""gross_receipts"": 1000000, ""regime"": ""graduated"", ""deduction_method"": ""osd"", ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> deduction_method_not_stated",clarify,False,True,,True,True,True,"Do you use the Optional Standard Deduction (OSD, 40%) or itemized deductions?"
+T09,missing_input,None,"calculate_ph_tax({""gross_receipts"": 0, ""regime"": ""8_percent"", ""deduction_method"": null, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> amount_not_stated; calculate_ph_tax({""gross_receipts"": 0, ""regime"": ""8_percent"", ""deduction_method"": null, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": 0}) -> amount_not_stated",clarify,False,True,,True,True,True,What is your total gross receipts for the year?
+T10,malformed,calculate_ph_tax|None,"calculate_ph_tax({""gross_receipts"": 500000, ""regime"": ""8_percent"", ""deduction_method"": null, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> negative_amount",clarify,True,True,,True,True,True,Please confirm your gross receipts amount as a positive value.
+T11,rag_not_tool,None,,answer,True,True,,True,True,True,"BIR Form 2307 is the Certificate of Creditable Tax Withheld at Source. It serves as proof that a certain amount of tax has been withheld from payments made to a taxpayer, typically for income payments. This form is used by taxpayers to claim tax credits against their income tax liability when filing their annual income tax return. It is important for ensuring that the taxpayer receives credit for taxes already paid through withholding, thereby reducing their overall tax due [S4]."
+T12,rag_not_tool,None,,answer,True,True,,True,True,True,"No, if you are on the 8% income tax rate, you cannot deduct your internet bill or any other business expenses. The 8% rate is based on gross sales/receipts, and deductions are not allowed for those who opted for this rate, except for the PHP 250,000 reduction applicable only to individuals earning purely from business or practice of profession [S1, S2, S3]."
+T13,rag_not_tool,None,,answer,True,True,,True,True,True,"The deadline for filing the quarterly percentage tax return (BIR Form 2551Q) is within twenty-five (25) days after the end of each taxable quarter. This applies to taxpayers whose gross annual sales and/or receipts do not exceed ₱3,000,000 and who are not VAT-registered persons [S1, S2]."
+T14,memory,calculate_ph_tax,"calculate_ph_tax({""gross_receipts"": 1500000, ""regime"": ""8_percent"", ""deduction_method"": null, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> ok",answer,True,True,True,True,True,True,"Based on your gross receipts of ₱1,500,000 and the 8% income tax rate, your income tax would be ₱100,000. This is calculated after applying the ₱250,000 reduction to your gross receipts, resulting in a taxable base of ₱1,250,000 [S1]. This estimate excludes any tax credits or quarterly payments already made."
+T15,memory,calculate_ph_tax,"calculate_ph_tax({""gross_receipts"": 600000, ""regime"": ""graduated"", ""deduction_method"": ""osd"", ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> ok",answer,True,True,True,True,True,True,"Based on your gross receipts of ₱600,000, your total tax liability will be approximately ₱34,500. This includes:
+- Graduated income tax: ₱16,500
+- 3% percentage tax: ₱18,000
+
+This estimate is for the taxable year 2023 onwards and does not account for any tax credits or quarterly payments already made [S1, S2]."
+T16,above_3m,calculate_ph_tax|compare_regimes,"calculate_ph_tax({""gross_receipts"": 4000000, ""regime"": ""8_percent"", ""deduction_method"": null, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": null}) -> eight_percent_not_available",fallback,True,True,,False,False,False,"I couldn't find guidance on that in my BIR sources, so I'd rather not guess. Please check with a CPA or your Revenue District Office (RDO)."
+T17,mixed_income,calculate_ph_tax,"calculate_ph_tax({""gross_receipts"": 600000, ""regime"": ""8_percent"", ""deduction_method"": null, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": 500000}) -> ok; calculate_ph_tax({""gross_receipts"": 0, ""regime"": ""graduated"", ""deduction_method"": null, ""itemized_expenses"": null, ""non_operating_income"": null, ""compensation_income"": 500000}) -> deduction_method_not_stated",answer,True,True,True,True,True,True,"Your total income tax will be ₱90,500. This includes:
+- ₱48,000 from your freelance income (₱600,000 gross receipts at 8%)
+- ₱42,500 from your compensation income (₱500,000 salary under graduated rates).
+
+Note that the ₱250,000 reduction is not applicable to mixed-income earners under the 8% rate [S1, S2]. This estimate excludes any tax credits or quarterly payments already made."

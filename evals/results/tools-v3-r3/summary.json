@@ -1,0 +1,11 @@
+{
+  "run": "tools-v3-r3",
+  "variant": "deliberate",
+  "scenarios": 17,
+  "tool_selection_accuracy": 1.0,
+  "model_tool_selection_accuracy": 0.882,
+  "precondition_blocks": 4,
+  "argument_accuracy": 1.0,
+  "argument_scored": 9,
+  "task_completion_rate": 1.0
+}

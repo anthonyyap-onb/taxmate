@@ -63,7 +63,7 @@ def test_every_openai_call_site_records_usage():
 
     def chat(parsed=None, content="q"):
         r = chat_resp("gpt-4o-mini", 10, 1)
-        r.choices = [NS(message=NS(parsed=parsed, content=content))]
+        r.choices = [NS(message=NS(parsed=parsed, content=content, tool_calls=None))]
         return r
 
     class FakeClient:

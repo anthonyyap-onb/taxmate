@@ -1,0 +1,9 @@
+{
+  "run": "tools-v1",
+  "variant": "deliberate",
+  "scenarios": 17,
+  "tool_selection_accuracy": 0.882,
+  "argument_accuracy": 1.0,
+  "argument_scored": 9,
+  "task_completion_rate": 0.824
+}

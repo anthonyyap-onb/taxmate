@@ -1,6 +1,7 @@
 """One guarded RAG turn: validate -> mask -> guard -> profile -> retrieve -> generate -> check -> log."""
 from __future__ import annotations
 
+import re
 import time
 import uuid
 from dataclasses import dataclass
@@ -16,6 +17,16 @@ from taxmate.prompts import PROMPT_VERSION
 from taxmate.types import GenerationResult, ScoredChunk, Turn, TurnResult
 
 MAX_INPUT_CHARS = 2000
+
+# A peso amount or an explicit ask to compute/compare. "8%", form numbers (2307, 1701Q) and years are not amounts.
+CALC_HINT = re.compile(
+    r"₱|\bphp\b|\bp\s?\d|\d{1,3}(?:,\d{3})+|\d{5,}|\d+(?:\.\d+)?\s*(?:k|m|mil|million|thousand)\b"
+    r"|how much|magkano|compute|calculate|which (?:is|regime|one)\b.*\b(?:better|cheaper|lower)|mas (?:mura|mababa)",
+    re.I)
+
+
+def looks_like_calculation(text: str) -> bool:
+    return bool(CALC_HINT.search(text))
 
 
 @dataclass
@@ -75,7 +86,9 @@ def _run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: De
         "moderation_flagged": False, "topic_category": None, "blocked": False, "block_reason": None,
         "n_chunks": 0, "top_score": None, "fallback": False, "citation_check": "skipped",
         "langfuse_trace_id": None, "error": None, "user_message_masked": "", "kind": None, "retrieved": [],
+        "tool_calls": [],
     }
+    tools_used: list = []
 
     def finish(kind: str, text: str, sources: list[ScoredChunk], prof: TaxProfile) -> TurnResult:
         rec["kind"] = kind
@@ -86,7 +99,7 @@ def _run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: De
               metadata={"kind": kind, "block_reason": rec["block_reason"], "citation_check": rec["citation_check"],
                         "top_score": rec["top_score"], "prompt_version": PROMPT_VERSION, "variant": variant})
         log_turn({**rec, "retrieved": [{k: v for k, v in r.items() if k != "text"} for r in rec["retrieved"]]})
-        return TurnResult(kind, text, sources, prof, rec)
+        return TurnResult(kind, text, sources, prof, rec, list(tools_used))
 
     text = (user_text or "").strip()
     if not text:
@@ -128,6 +141,20 @@ def _run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: De
             rec["retrieved"] = [{"chunk_id": h.chunk.chunk_id, "score": round(h.score, 4), "text": h.chunk.text}
                                 for h in hits]
             if not hits or hits[0].score < deps.threshold:
+                if looks_like_calculation(masked):
+                    # No good BIR source, but the calculator may answer it. Keep the result only if it is grounded
+                    # in a tool call, or asks for a missing calculator input; never a sourceless free-text answer.
+                    with timer.stage("generation"):
+                        gen = deps.generate(masked, history, profile, [], variant, False)
+                    tools_used[:] = gen.tool_calls
+                    rec["tool_calls"] = [t.log_view() for t in gen.tool_calls]
+                    if gen.type == "clarify" or gen.tool_calls:
+                        rec["citation_check"] = "tool" if gen.type == "answer" else "skipped"
+                        if deps.moderate(gen.text):
+                            rec["moderation_flagged"], rec["blocked"] = True, True
+                            rec["block_reason"] = "output_moderation"
+                            return finish("blocked", copy.BLOCKED_TEXT, [], profile)
+                        return finish(gen.type, gen.text, [], profile)
                 if profile != before:  # a statement about the user, not an unanswerable question
                     return finish("smalltalk", copy.PROFILE_ACK_TEXT, [], profile)
                 rec["fallback"] = True
@@ -135,13 +162,18 @@ def _run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: De
 
             with timer.stage("generation"):
                 gen = deps.generate(masked, history, profile, hits, variant, False)
-                if gen.type == "answer":
+                if gen.type == "answer" and gen.tool_calls and not gen.cited:
+                    rec["citation_check"] = "tool"  # grounded in the calculator result
+                elif gen.type == "answer":
                     rec["citation_check"] = "pass"
                     if not gen.cited:
                         gen = deps.generate(masked, history, profile, hits, variant, True)
-                        rec["citation_check"] = "retry_pass" if (gen.type == "clarify" or gen.cited) else "fail"
+                        rec["citation_check"] = ("retry_pass" if (gen.type == "clarify" or gen.cited)
+                                                 else "retry_tool" if gen.tool_calls else "fail")
                 if gen.type == "clarify":
                     rec["citation_check"] = "skipped"
+            tools_used[:] = gen.tool_calls
+            rec["tool_calls"] = [t.log_view() for t in gen.tool_calls]
             if rec["citation_check"] == "fail":
                 rec["fallback"] = True
                 return finish("fallback", copy.FALLBACK_TEXT, [], profile)

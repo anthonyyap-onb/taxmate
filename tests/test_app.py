@@ -69,3 +69,19 @@ def test_startup_failure_shows_friendly_error_not_traceback(monkeypatch, caplog)
     logged = [json.loads(r.getMessage()) for r in caplog.records if r.getMessage().startswith("{")]
     assert logged and logged[-1]["kind"] == "error" and logged[-1]["error"] == "ConnectionError"
     assert "2307" not in caplog.text  # nothing about the user's question in a startup-error line
+
+
+def test_calculator_result_renders_as_metric_card(monkeypatch):
+    from taxmate.calculator import calculate_ph_tax, compare_regimes
+    at = _app_with_messages(monkeypatch, [
+        {"role": "assistant", "kind": "answer", "content": "About ₱76,000.", "sources": [],
+         "tools": [{"name": "calculate_ph_tax", "ok": True, "result": calculate_ph_tax(1_200_000, "8_percent").to_dict()}]},
+        {"role": "assistant", "kind": "answer", "content": "8% is lowest.", "sources": [],
+         "tools": [{"name": "compare_regimes", "ok": True, "result": compare_regimes(900_000, 200_000)},
+                   {"name": "calculate_ph_tax", "ok": False, "result": {"error": "invalid_amount", "message": "x"}}]},
+    ])
+    assert not at.exception
+    values = {m.label: m.value for m in at.metric}
+    assert values["Estimated total tax"] == "₱76,000.00"
+    assert values["8% rate ✓ lowest"] == "₱52,000.00" and values["Graduated + OSD"] == "₱77,500.00"
+    assert len(at.metric) == 6  # 3 for the calculation, 3 for the comparison; the failed call renders nothing

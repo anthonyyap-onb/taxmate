@@ -178,3 +178,60 @@ def test_classifier_gets_no_context_on_first_turn():
     calls = []
     run_turn("What is 2307?", [], TaxProfile(), fake_deps(calls), "s")
     assert ("classify_topic", ("What is 2307?", None)) in calls
+
+
+# --- calculator tools ---------------------------------------------------------------------------------------
+from taxmate.tools import ToolCall  # noqa: E402
+
+CALC = ToolCall("calculate_ph_tax", {"gross_receipts": 1_200_000, "regime": "8_percent"}, {"total_tax": 76000})
+LOW = dict(retrieve=lambda q, k: [ScoredChunk(CHUNK, 0.2)])
+
+
+def test_tool_answer_passes_citation_check_without_retry():
+    calls = []
+    gen = lambda *a: GenerationResult("answer", "About ₱76,000.", [], [CALC])  # noqa: E731
+    r = run_turn("8%, 1.2M gross, how much?", [], TaxProfile(), fake_deps(calls, generate=gen), "s")
+    assert r.kind == "answer" and names(calls).count("generate") == 1 and r.record["citation_check"] == "tool"
+    assert r.tool_calls == [CALC]
+    assert r.record["tool_calls"] == [{"name": "calculate_ph_tax", "args": CALC.args, "ok": True, "error": None}]
+
+
+@pytest.mark.parametrize("text", ["I earned ₱800,000, how much tax?", "Magkano tax ko sa 1.2M?",
+                                  "gross receipts 1,500,000 on 8%", "Which is cheaper for 900k gross?"])
+def test_low_score_calculation_question_uses_tools_without_sources(text):
+    calls = []
+    gen = lambda *a: GenerationResult("answer", "About ₱76,000.", [], [CALC])  # noqa: E731
+    r = run_turn(text, [], TaxProfile(), fake_deps(calls, generate=gen, **LOW), "s")
+    assert r.kind == "answer" and r.sources == [] and r.record["fallback"] is False
+    assert next(a for n, a in calls if n == "generate")[3] == []  # no weak sources handed to the model
+
+
+def test_low_score_calculation_clarify_is_kept():
+    gen = lambda *a: GenerationResult("clarify", "Are you on 8% or graduated rates?", [])  # noqa: E731
+    r = run_turn("How much tax on ₱800,000?", [], TaxProfile(), fake_deps([], generate=gen, **LOW), "s")
+    assert r.kind == "clarify"
+
+
+def test_low_score_calculation_answer_without_tool_falls_back():
+    gen = lambda *a: GenerationResult("answer", "Probably around ₱60,000.", [])  # noqa: E731
+    r = run_turn("How much tax on ₱800,000?", [], TaxProfile(), fake_deps([], generate=gen, **LOW), "s")
+    assert r.kind == "fallback" and r.record["fallback"] is True
+
+
+@pytest.mark.parametrize("text", ["I'm on 8%", "estate tax?", "What is Form 2307 for?", "Q1 1701Q deadline?"])
+def test_low_score_non_calculation_never_calls_generate(text):
+    calls = []
+    run_turn(text, [], TaxProfile(), fake_deps(calls, **LOW), "s")
+    assert "generate" not in names(calls)
+
+
+@pytest.mark.parametrize("text", ["Is 2023 different from 2024?", "deadline for 2551Q", "what's 1701MS"])
+def test_form_numbers_and_years_are_not_amounts(text):
+    assert not pipeline.looks_like_calculation(text)
+
+
+def test_citation_retry_that_uses_the_calculator_is_accepted():
+    gen = _gen_seq([GenerationResult("answer", "8% isn't available.", []),
+                    GenerationResult("answer", "8% isn't available above ₱3M.", [], [CALC])])
+    r = run_turn("₱4,000,000 on 8%, how much?", [], TaxProfile(), fake_deps([], generate=gen), "s")
+    assert r.kind == "answer" and r.record["citation_check"] == "retry_tool" and r.tool_calls == [CALC]

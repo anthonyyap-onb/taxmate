@@ -64,6 +64,46 @@ def render_sources(sources: list[dict]) -> None:
             st.caption(s["snippet"])
 
 
+OPTION_LABELS = {"8_percent": "8% rate", "graduated_osd": "Graduated + OSD", "graduated_itemized": "Graduated + itemized"}
+
+
+def peso(x: float) -> str:
+    return f"₱{x:,.2f}"
+
+
+def render_breakdown(result: dict) -> None:
+    with st.expander("How this was computed"):
+        st.table([{"Item": line["label"], "Amount": peso(line["amount"])} for line in result["lines"]])
+        for note in result["notes"]:
+            st.caption(note)
+
+
+def render_tools(tools: list[dict]) -> None:
+    """Calculator results as cards. Failed calls show nothing; the reply text explains them."""
+    for t in tools:
+        if not t["ok"]:
+            continue
+        r = t["result"]
+        with st.container(border=True):
+            if t["name"] == "compare_regimes":
+                cols = st.columns(len(r["options"]))
+                for col, o in zip(cols, r["options"]):
+                    label = OPTION_LABELS[o["option"]] + (" ✓ lowest" if o["option"] == r["lowest"] else "")
+                    col.metric(label, peso(o["total_tax"]))
+                if not r["eight_percent_available"]:
+                    st.caption("The 8% option isn't available above ₱3,000,000 gross sales/receipts.")
+                lowest = next(o for o in r["options"] if o["option"] == r["lowest"])
+                render_breakdown(lowest)
+            else:
+                label = "8% rate" if r["regime"] == "8_percent" else OPTION_LABELS["graduated_" + r["deduction_method"]]
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Estimated total tax", peso(r["total_tax"]))
+                c2.metric("Income tax", peso(r["income_tax"]))
+                c3.metric("Percentage tax", peso(r["percentage_tax"]))
+                st.caption(f"Regime: {label}")
+                render_breakdown(r)
+
+
 def render_message(msg: dict) -> None:
     with st.chat_message(msg["role"]):
         kind = msg.get("kind")
@@ -75,6 +115,7 @@ def render_message(msg: dict) -> None:
             st.error(msg["content"])
         else:
             st.markdown(msg["content"])
+        render_tools(msg.get("tools", []))
         if kind == "answer":
             st.caption(copy.VERIFY_NOTE)
         render_sources(msg.get("sources", []))
@@ -100,6 +141,7 @@ def handle(user_text: str) -> None:
     st.session_state.profile = result.profile
     st.session_state.messages.append({
         "role": "assistant", "content": result.text, "kind": result.kind,
+        "tools": [{"name": t.name, "ok": t.ok, "result": t.result} for t in result.tool_calls],
         "sources": [{"title": s.chunk.title, "section": s.chunk.section, "issued": s.chunk.issued,
                      "snippet": s.chunk.text[:400] + ("…" if len(s.chunk.text) > 400 else "")}
                     for s in result.sources],
