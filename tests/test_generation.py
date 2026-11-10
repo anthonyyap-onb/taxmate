@@ -118,7 +118,7 @@ def test_generator_without_tool_use_has_empty_tool_calls():
 
 def test_deliberate_prompt_v4_requires_calculator_for_amounts():
     from taxmate.prompts import PROMPT_VERSION, SYSTEM_PROMPTS
-    assert PROMPT_VERSION == "v4"
+    assert PROMPT_VERSION == "v5"
     rule = SYSTEM_PROMPTS["deliberate"]
     assert "calculate_ph_tax" in rule and "compare_regimes" in rule and "never do arithmetic" in rule.lower()
 

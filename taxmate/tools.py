@@ -85,7 +85,7 @@ _REGIME_WORDS = {"8_percent": re.compile(r"\b8\s*%|\b8\s*percent|eight percent",
 _DEDUCTION_WORDS = {"osd": re.compile(r"\bosd\b|optional standard", re.I),
                     "itemized": re.compile(r"\bitemi[sz]", re.I)}
 PRECONDITION_ERRORS = frozenset({"regime_not_stated", "deduction_method_not_stated", "amount_not_stated",
-                                 "negative_amount"})
+                                 "negative_amount", "income_type_not_stated"})
 _AMOUNT_FIELDS = ("gross_receipts", "itemized_expenses", "non_operating_income", "compensation_income")
 
 
@@ -130,6 +130,12 @@ def check_call(name: str, args: dict, profile: TaxProfile, user_texts: list[str]
             return _err("negative_amount", f"The user gave a negative amount for {field}. Ask them to confirm the "
                         "correct (positive) peso amount.")
         if not any(abs(value - s) <= 1 for s in stated):
+            if (name == "compare_regimes" and field == "gross_receipts" and profile.taxpayer_type == "unknown"
+                    and profile.income_source == "unknown"):
+                # "Should I choose 8% or graduated?" with nothing known: income type comes before the amount
+                return _err("income_type_not_stated", "Do not compare yet. Ask ONE question: is the user a "
+                            "freelancer/professional, a sole proprietor, or a mixed-income earner (employed and also "
+                            "self-employed)? The 8% rules differ for mixed-income earners.")
             return _err("amount_not_stated", f"{field}={value:,.0f} is not an amount the user stated. Do not derive "
                         "or convert amounts yourself: ask the user for the annual figure.")
     return None

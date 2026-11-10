@@ -113,3 +113,13 @@ def test_itemize_verb_counts_as_stating_itemized():
     args = calc(regime="graduated", deduction_method="itemized", itemized_expenses=200000)
     assert check_call("calculate_ph_tax", args, TaxProfile(tax_regime="graduated"),
                       ["₱800,000 gross, I itemize ₱200,000 of expenses"]) is None
+
+
+def test_compare_with_nothing_known_asks_income_type_before_amount():
+    args = {"gross_receipts": 0, "itemized_expenses": None, "non_operating_income": None, "compensation_income": None}
+    q = ["Should I choose the 8% income tax rate or graduated rates?"]
+    assert check_call("compare_regimes", args, TaxProfile(), q)["error"] == "income_type_not_stated"
+    known = TaxProfile(taxpayer_type="freelancer_professional")
+    assert check_call("compare_regimes", args, known, q)["error"] == "amount_not_stated"
+    stated = {**args, "gross_receipts": 900000}
+    assert check_call("compare_regimes", stated, TaxProfile(), ["900k gross"]) is None  # amount given: no extra question
