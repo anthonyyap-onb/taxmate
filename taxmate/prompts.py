@@ -24,6 +24,17 @@ Rules:
 7. Plain language, at most 180 words. Set type to "answer" for answers. Answer the question directly; do not add closing disclaimers (the app shows its own).""",
 }
 
+# Variant 3 for the prompt comparison: the same rules plus an explicit, hidden reasoning step. The `analysis` field
+# of the structured output is filled first and never shown to the user (taxmate/generation.py).
+SYSTEM_PROMPTS["structured"] = SYSTEM_PROMPTS["deliberate"] + """
+
+Before writing `text`, fill `analysis` (never shown to the user) with four short lines:
+1. Sources: which [S#] directly answer the question, and their issued dates (note any newer one that supersedes).
+2. Profile: which profile fields change the answer, and whether any of them is "unknown".
+3. Calculation: is a tax amount needed? If so, which tool, and are all its inputs stated?
+4. Decision: answer, clarify (which ONE question), or not found in the sources.
+Then write `text` following that decision and the rules above."""
+
 _STRICT = ("Your previous answer lacked valid citations. Every factual sentence must cite [S#] "
            "from the sources above.")
 

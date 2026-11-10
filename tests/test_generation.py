@@ -133,3 +133,26 @@ def test_generator_applies_preconditions_with_conversation_context():
     client, calls = _tool_client([{"tool": [("calculate_ph_tax", ARGS_8)]}, {"type": "clarify", "text": "8% or graduated?"}])
     r = make_generator(client, "m")("I earned ₱1,200,000. How much tax?", [], TaxProfile(), [], "deliberate", False)
     assert r.type == "clarify" and r.tool_calls[0].result["error"] == "regime_not_stated"
+
+
+def test_structured_variant_is_deliberate_plus_reasoning_steps():
+    from taxmate.prompts import SYSTEM_PROMPTS
+    assert set(SYSTEM_PROMPTS) == {"baseline", "deliberate", "structured"}
+    assert SYSTEM_PROMPTS["structured"].startswith(SYSTEM_PROMPTS["deliberate"])
+    assert "analysis" in SYSTEM_PROMPTS["structured"]
+
+
+def test_structured_variant_hides_analysis_from_user():
+    from types import SimpleNamespace as NS
+    from taxmate.generation import _ReasonedAnswer, make_generator
+    seen = {}
+
+    def parse(**kw):
+        seen.update(kw)
+        msg = NS(content=None, tool_calls=None,
+                 parsed=_ReasonedAnswer(analysis="S1 covers it; regime known", type="answer", text="Yes [S1]"))
+        return NS(model="m", usage=None, choices=[NS(message=msg)])
+    client = NS(chat=NS(completions=NS(parse=parse)))
+    r = make_generator(client, "m")("q", [], TaxProfile(), [sc("RMC-50-2018", "Q1")], "structured", False)
+    assert seen["response_format"] is _ReasonedAnswer
+    assert r.text == "Yes [S1]" and "regime known" not in r.text and r.cited == [1]

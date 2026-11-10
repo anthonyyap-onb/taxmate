@@ -1,0 +1,11 @@
+{
+  "run": "pc-baseline-tools",
+  "variant": "baseline",
+  "scenarios": 17,
+  "tool_selection_accuracy": 1.0,
+  "model_tool_selection_accuracy": 0.882,
+  "precondition_blocks": 5,
+  "argument_accuracy": 1.0,
+  "argument_scored": 9,
+  "task_completion_rate": 0.765
+}

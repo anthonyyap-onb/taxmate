@@ -1,0 +1,11 @@
+{
+  "run": "pc-structured-tools",
+  "variant": "structured",
+  "scenarios": 17,
+  "tool_selection_accuracy": 0.824,
+  "model_tool_selection_accuracy": 0.824,
+  "precondition_blocks": 1,
+  "argument_accuracy": 1.0,
+  "argument_scored": 6,
+  "task_completion_rate": 0.824
+}

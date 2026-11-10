@@ -1,0 +1,17 @@
+{
+  "run": "pc-structured-ragas",
+  "variant": "structured",
+  "prompt_version": "v4",
+  "judge_model": "gpt-4o-mini",
+  "ragas_version": "0.4.3",
+  "threshold": 0.47,
+  "k": 4,
+  "n_in_corpus": 30,
+  "faithfulness": 0.74,
+  "answer_relevancy": 0.764,
+  "context_precision": 0.857,
+  "context_recall": 0.967,
+  "in_corpus_fallback_rate": 0.033,
+  "out_of_corpus_fallback_rate": 0.5,
+  "threshold_env": null
+}

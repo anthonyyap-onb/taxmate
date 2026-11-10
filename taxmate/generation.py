@@ -31,6 +31,13 @@ class _Answer(BaseModel):
     text: str
 
 
+class _ReasonedAnswer(BaseModel):
+    """'structured' prompt variant: hidden reasoning first, then the reply. Only `text` reaches the user."""
+    analysis: str
+    type: Literal["answer", "clarify"]
+    text: str
+
+
 Generator = Callable[[str, list[Turn], TaxProfile, list[ScoredChunk], str, bool], GenerationResult]
 
 MAX_TOOL_ROUNDS = 3
@@ -48,11 +55,12 @@ def make_generator(client, model: str) -> Generator:
                  variant: str, strict: bool) -> GenerationResult:
         messages = build_messages(question, history, profile, sources, variant, strict)
         tool_calls: list[ToolCall] = []
+        schema = _ReasonedAnswer if variant == "structured" else _Answer
         user_texts = [t.content for t in history if t.role == "user"] + [question]
         for round_no in range(MAX_TOOL_ROUNDS + 1):
             offer_tools = round_no < MAX_TOOL_ROUNDS  # the last round must produce a final answer
             completion = client.chat.completions.parse(
-                model=model, temperature=0, messages=messages, response_format=_Answer,
+                model=model, temperature=0, messages=messages, response_format=schema,
                 **({"tools": TOOL_SCHEMAS} if offer_tools else {}),
             )
             usage.record(completion)

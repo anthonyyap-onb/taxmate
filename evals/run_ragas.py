@@ -1,7 +1,7 @@
 """RAGAS evaluation of the golden set through the real pipeline.
-python -m evals.run_ragas --run NAME --variant {baseline,deliberate}
+python -m evals.run_ragas --run NAME --variant {baseline,deliberate,structured} [--judge MODEL]
 
-Uses the RAGAS 0.4 per-sample metrics API (ragas.metrics.collections) with gpt-4o-mini as judge."""
+Uses the RAGAS 0.4 per-sample metrics API (ragas.metrics.collections) with a judge model that is stronger than the gpt-4o-mini generator (default gpt-4.1)."""
 from __future__ import annotations
 
 import argparse
@@ -18,11 +18,12 @@ from taxmate.pipeline import run_turn
 from taxmate.profile import TaxProfile
 from taxmate.prompts import PROMPT_VERSION
 
-JUDGE_MODEL = "gpt-4o-mini"
+# Iteration-1 runs used gpt-4o-mini (the generator itself) as judge; scores from different judges are not comparable.
+JUDGE_MODEL = "gpt-4.1"
 METRICS = ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
 
 
-def build_metrics(api_key: str, embed_model: str) -> dict:
+def build_metrics(api_key: str, embed_model: str, judge_model: str = JUDGE_MODEL) -> dict:
     from openai import AsyncOpenAI
     from ragas.embeddings import OpenAIEmbeddings
     from ragas.llms import llm_factory
@@ -30,7 +31,7 @@ def build_metrics(api_key: str, embed_model: str) -> dict:
                                            Faithfulness)
 
     client = AsyncOpenAI(api_key=api_key)
-    llm = llm_factory(JUDGE_MODEL, client=client)
+    llm = llm_factory(judge_model, client=client)
     emb = OpenAIEmbeddings(client=client, model=embed_model)
     return {"faithfulness": Faithfulness(llm=llm), "answer_relevancy": AnswerRelevancy(llm=llm, embeddings=emb),
             "context_precision": ContextPrecisionWithReference(llm=llm), "context_recall": ContextRecall(llm=llm)}
@@ -55,11 +56,12 @@ async def score_sample(metrics: dict, q: str, response: str, contexts: list[str]
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", required=True)
-    ap.add_argument("--variant", default="deliberate", choices=["baseline", "deliberate"])
+    ap.add_argument("--variant", default="deliberate", choices=["baseline", "deliberate", "structured"])
     ap.add_argument("--only", nargs="*", help="limit to these golden ids")
+    ap.add_argument("--judge", default=JUDGE_MODEL, help="RAGAS judge model")
     args = ap.parse_args()
     deps, settings = init_live()
-    metrics = build_metrics(settings.openai_api_key, settings.embed_model)
+    metrics = build_metrics(settings.openai_api_key, settings.embed_model, args.judge)
     golden = [g for g in load_jsonl("evals/golden_set.jsonl") if not args.only or g["id"] in args.only]
 
     rows = []
@@ -88,7 +90,7 @@ def main() -> None:
     inc = [r for r in rows if r["in_corpus"]]
     ooc = [r for r in rows if not r["in_corpus"]]
     summary = {
-        "run": args.run, "variant": args.variant, "prompt_version": PROMPT_VERSION, "judge_model": JUDGE_MODEL,
+        "run": args.run, "variant": args.variant, "prompt_version": PROMPT_VERSION, "judge_model": args.judge,
         "ragas_version": __import__("ragas").__version__, "threshold": deps.threshold, "k": deps.k,
         "n_in_corpus": len(inc),
         **{m: round(mean(v for r in inc if (v := r[m]) is not None), 3) if any(r[m] is not None for r in inc) else None

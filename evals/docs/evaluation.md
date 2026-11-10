@@ -41,10 +41,10 @@ In the smoke test, both the estate-tax and crypto questions ended in the fallbac
 
 **Evaluation.**
 - Tool: RAGAS **0.4.3**, using the per-sample `ragas.metrics.collections` API.
-- Judge: `gpt-4o-mini`.
+- Judge: `gpt-4o-mini` for the iteration-1 runs on this page. From iteration 2 the default is **`gpt-4.1`** (`--judge`), a stronger model than the gpt-4o-mini generator. Scores from different judges are not comparable; see `prompt-comparison.md` for both side by side.
 - Metrics: faithfulness, answer relevancy (embeddings `text-embedding-3-small`), context precision (with reference) and context recall.
 - Dataset: `evals/golden_set.jsonl`: 30 in-corpus questions, each with a reference answer and reference document, written from the sources and reviewed by the project owner, plus 4 out-of-corpus questions. Out-of-corpus questions are scored on whether TaxMate falls back, not with RAGAS.
-- Command: `python -m evals.run_ragas --run <name> --variant <baseline|deliberate>`. It writes `evals/results/<name>/results.csv` and `summary.json`.
+- Command: `python -m evals.run_ragas --run <name> --variant <baseline|deliberate|structured> [--judge MODEL]`. It writes `evals/results/<name>/results.csv` and `summary.json`.
 
 ## Results
 
