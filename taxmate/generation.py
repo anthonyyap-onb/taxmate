@@ -6,6 +6,7 @@ from typing import Callable, Literal
 
 from pydantic import BaseModel
 
+from taxmate import usage
 from taxmate.profile import TaxProfile
 from taxmate.prompts import build_messages
 from taxmate.types import GenerationResult, ScoredChunk, Turn
@@ -39,6 +40,7 @@ def make_generator(client, model: str) -> Generator:
             messages=build_messages(question, history, profile, sources, variant, strict),
             response_format=_Answer,
         )
+        usage.record(completion)
         msg = completion.choices[0].message
         parsed = msg.parsed or _Answer(type="answer", text=msg.content or "")
         return GenerationResult(parsed.type, parsed.text, parse_citations(parsed.text, len(sources)))

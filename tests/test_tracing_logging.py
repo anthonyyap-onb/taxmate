@@ -37,3 +37,9 @@ def test_log_turn_emits_json(caplog):
         log_turn({"request_id": "r1", "user_message_masked": "TIN [TIN]"})
     rec = json.loads(caplog.records[-1].getMessage())
     assert rec["request_id"] == "r1" and "ts" in rec
+
+
+def test_client_has_short_timeout_and_bounded_retries():
+    client = tracing.make_openai_client(settings())
+    assert client.timeout == tracing.OPENAI_TIMEOUT_S and client.max_retries == tracing.OPENAI_MAX_RETRIES
+    assert tracing.OPENAI_TIMEOUT_S <= 60

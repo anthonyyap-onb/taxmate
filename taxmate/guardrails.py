@@ -6,6 +6,8 @@ from typing import Callable, Literal
 
 from pydantic import BaseModel
 
+from taxmate import usage
+
 from taxmate.types import GuardVerdict
 
 INJECTION_PATTERNS: list[re.Pattern] = [re.compile(p, re.IGNORECASE) for p in [
@@ -64,6 +66,7 @@ def make_topic_classifier(client, model: str) -> Callable[[str, str | None], str
             messages=[{"role": "system", "content": _CLASSIFIER_SYSTEM}, {"role": "user", "content": content}],
             response_format=TopicVerdict,
         )
+        usage.record(completion)
         parsed = completion.choices[0].message.parsed
         return parsed.category if parsed else "on_topic"
     return classify

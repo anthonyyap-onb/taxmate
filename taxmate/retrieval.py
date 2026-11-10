@@ -8,6 +8,7 @@ from typing import Callable
 import faiss
 import numpy as np
 
+from taxmate import usage
 from taxmate.types import Chunk, ScoredChunk, Turn
 
 Embedder = Callable[[list[str]], np.ndarray]
@@ -54,6 +55,7 @@ def build_index(chunks: list[Chunk], embed: Embedder, batch_size: int = 64) -> V
 def make_embedder(client, model: str) -> Embedder:
     def embed(texts: list[str]) -> np.ndarray:
         resp = client.embeddings.create(model=model, input=texts)
+        usage.record(resp)
         return np.array([d.embedding for d in resp.data], dtype=np.float32)
     return embed
 
@@ -104,5 +106,6 @@ def make_query_rewriter(client, model: str) -> Callable[[list[Turn], str], str]:
             messages=[{"role": "system", "content": _REWRITE_SYSTEM},
                       {"role": "user", "content": f"Conversation:\n{convo}\n\nLatest question: {question}"}],
         )
+        usage.record(resp)
         return (resp.choices[0].message.content or question).strip()
     return rewrite

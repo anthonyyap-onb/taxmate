@@ -7,6 +7,7 @@ import streamlit as st
 
 from taxmate import copy, tracing
 from taxmate.config import load_settings, missing_keys
+from taxmate.logging_utils import log_turn
 from taxmate.profile import TaxProfile
 from taxmate.types import Turn
 
@@ -82,8 +83,15 @@ def render_message(msg: dict) -> None:
 def handle(user_text: str) -> None:
     from taxmate.pipeline import run_turn
     st.session_state.messages.append({"role": "user", "content": user_text})
+    try:
+        deps = get_deps()  # builds the index on first use; st.cache_resource does not cache a failure
+    except Exception as exc:
+        log_turn({"request_id": str(uuid.uuid4()), "session_id": st.session_state.session_id,
+                  "kind": "error", "stage": "startup", "error": type(exc).__name__})
+        st.session_state.messages.append({"role": "assistant", "content": copy.ERROR_TEXT, "kind": "error"})
+        return
     with st.spinner("Checking BIR sources…"):
-        result = run_turn(user_text, st.session_state.history, st.session_state.profile, get_deps(),
+        result = run_turn(user_text, st.session_state.history, st.session_state.profile, deps,
                           st.session_state.session_id)
     tracing.flush()
     masked = result.record.get("user_message_masked") or user_text

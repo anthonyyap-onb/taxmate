@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable
 
-from taxmate import copy, tracing
+from taxmate import copy, tracing, usage
 from taxmate.guardrails import check_input
 from taxmate.logging_utils import log_turn
 from taxmate.pii import mask_pii
@@ -62,6 +62,12 @@ class _Timer:
 @tracing.observe("turn", capture_input=False, capture_output=False)
 def run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: Deps, session_id: str,
              variant: str = "deliberate") -> TurnResult:
+    with usage.track() as turn_usage:
+        return _run_turn(user_text, history, profile, deps, session_id, variant, turn_usage)
+
+
+def _run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: Deps, session_id: str,
+              variant: str, turn_usage: usage.Usage) -> TurnResult:
     timer = _Timer()
     rec: dict = {
         "ts": datetime.now(timezone.utc).isoformat(), "request_id": str(uuid.uuid4()), "session_id": session_id,
@@ -74,6 +80,7 @@ def run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: Dep
     def finish(kind: str, text: str, sources: list[ScoredChunk], prof: TaxProfile) -> TurnResult:
         rec["kind"] = kind
         rec["latency_ms"] = timer.total()
+        rec.update(turn_usage.summary())
         rec["langfuse_trace_id"] = _safe(tracing.current_trace_id)
         _safe(tracing.update_span, input=rec["user_message_masked"], output=text,
               metadata={"kind": kind, "block_reason": rec["block_reason"], "citation_check": rec["citation_check"],

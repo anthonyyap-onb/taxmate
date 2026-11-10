@@ -48,3 +48,24 @@ def test_chip_click_sends_question_and_hides_chips_in_same_rerun(monkeypatch):
     assert not at.exception
     assert asked == [copy.SUGGESTED_QUESTIONS[-1]]
     assert not [b for b in at.button if b.label in copy.SUGGESTED_QUESTIONS]
+
+
+def test_startup_failure_shows_friendly_error_not_traceback(monkeypatch, caplog):
+    import json
+    import streamlit as st
+    from taxmate import copy
+    st.cache_resource.clear()  # get_deps is process-global; earlier tests cache fake deps
+
+    def boom(s):
+        raise ConnectionError("api.openai.com unreachable")
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+    monkeypatch.setattr("taxmate.config.load_dotenv", lambda *a, **k: None)
+    monkeypatch.setattr("taxmate.live.build_live_deps", boom)
+    at = AppTest.from_file("../app.py").run(timeout=30)
+    with caplog.at_level("INFO", logger="taxmate"):
+        at.chat_input[0].set_value("What is 2307?").run(timeout=30)
+    assert not at.exception
+    assert any(e.value == copy.ERROR_TEXT for e in at.error)
+    logged = [json.loads(r.getMessage()) for r in caplog.records if r.getMessage().startswith("{")]
+    assert logged and logged[-1]["kind"] == "error" and logged[-1]["error"] == "ConnectionError"
+    assert "2307" not in caplog.text  # nothing about the user's question in a startup-error line

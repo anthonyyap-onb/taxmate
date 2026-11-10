@@ -14,6 +14,10 @@ from taxmate.config import Settings
 log = logging.getLogger("taxmate")
 _enabled = False
 
+# The SDK default is a 600 s timeout; a chat turn should fail fast with the friendly error instead.
+OPENAI_TIMEOUT_S = 30.0
+OPENAI_MAX_RETRIES = 2
+
 
 def tracing_enabled(s: Settings) -> bool:
     return bool(s.langfuse_public_key and s.langfuse_secret_key)
@@ -38,10 +42,10 @@ def make_openai_client(s: Settings):
     if tracing_enabled(s):
         try:
             from langfuse.openai import OpenAI as TracedOpenAI
-            return TracedOpenAI(api_key=s.openai_api_key)
+            return TracedOpenAI(api_key=s.openai_api_key, timeout=OPENAI_TIMEOUT_S, max_retries=OPENAI_MAX_RETRIES)
         except Exception as exc:  # pragma: no cover
             log.warning("Langfuse OpenAI wrapper unavailable, using plain client: %s", type(exc).__name__)
-    return openai.OpenAI(api_key=s.openai_api_key)
+    return openai.OpenAI(api_key=s.openai_api_key, timeout=OPENAI_TIMEOUT_S, max_retries=OPENAI_MAX_RETRIES)
 
 
 def observe(name: str, capture_input: bool = True, capture_output: bool = True) -> Callable:

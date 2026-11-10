@@ -6,6 +6,8 @@ from typing import Callable, Literal, Optional
 
 from pydantic import BaseModel, ValidationError
 
+from taxmate import usage
+
 TaxpayerType = Literal["freelancer_professional", "sole_proprietor", "mixed_income"]
 Regime = Literal["8_percent", "graduated"]
 IncomeSource = Literal["purely_self_employed", "mixed"]
@@ -123,6 +125,7 @@ def make_profile_extractor(client, model: str) -> Callable[[str, TaxProfile], Pr
             ],
             response_format=_Extraction,
         )
+        usage.record(completion)
         parsed = completion.choices[0].message.parsed
         return facts_to_update(message, parsed.facts) if parsed else ProfileUpdate()
 

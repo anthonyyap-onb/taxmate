@@ -4,7 +4,7 @@ TaxMate is a chat assistant for Philippine freelancers and sole proprietors. It 
 
 > Information only. TaxMate is not legal or CPA advice.
 
-**Live app:** _added after deployment_
+**Live app:** https://taxmate-psia-capstone.streamlit.app
 
 ## How it works (iteration 1)
 
@@ -80,5 +80,4 @@ uv run python -m evals.run_memory_suite --run memory-v1
 - [Guardrails](evals/docs/guardrails.md)
 - [Memory](evals/docs/memory.md)
 - [Debugged failure](evals/docs/debugged-failure.md)
-- [Deploy guide](docs/deploy.md)
-- [Design](docs/superpowers/specs/2026-11-10-taxmate-design.md) and [iteration-2 backlog](docs/iteration-2-backlog.md)
+- [Operational readiness (secrets, logging, errors)](evals/docs/operations.md)
