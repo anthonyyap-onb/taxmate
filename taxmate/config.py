@@ -14,7 +14,7 @@ class Settings:
     openai_api_key: str | None
     langfuse_public_key: str | None
     langfuse_secret_key: str | None
-    langfuse_host: str
+    langfuse_base_url: str
     chat_model: str
     embed_model: str
     log_level: str
@@ -44,7 +44,7 @@ def load_settings() -> Settings:
         openai_api_key=_env("OPENAI_API_KEY"),
         langfuse_public_key=_env("LANGFUSE_PUBLIC_KEY"),
         langfuse_secret_key=_env("LANGFUSE_SECRET_KEY"),
-        langfuse_host=_env("LANGFUSE_HOST", "https://cloud.langfuse.com"),
+        langfuse_base_url=_env("LANGFUSE_BASE_URL", _env("LANGFUSE_HOST", "https://cloud.langfuse.com")),
         chat_model=_env("TAXMATE_CHAT_MODEL", "gpt-4o-mini"),
         embed_model=_env("TAXMATE_EMBED_MODEL", "text-embedding-3-small"),
         log_level=_env("TAXMATE_LOG_LEVEL", "INFO"),

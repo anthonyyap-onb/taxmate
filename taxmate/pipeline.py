@@ -27,7 +27,7 @@ class Deps:
     retrieve: Callable[[str, int], list[ScoredChunk]]
     generate: Callable[[str, list[Turn], TaxProfile, list[ScoredChunk], str, bool], GenerationResult]
     model: str
-    threshold: float = 0.30
+    threshold: float = 0.47  # tuned in evals/results/threshold-v1 (min in-corpus top score 0.478)
     k: int = 4
 
 
@@ -103,6 +103,7 @@ def run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: Dep
                 return finish("blocked", copy.BLOCKED_TEXT, [], profile)
 
             with timer.stage("profile"):
+                before = profile
                 profile = merge_profile(profile, deps.extract_profile(masked, profile))
 
             if verdict.category == "smalltalk":
@@ -118,6 +119,8 @@ def run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: Dep
             rec["retrieved"] = [{"chunk_id": h.chunk.chunk_id, "score": round(h.score, 4), "text": h.chunk.text}
                                 for h in hits]
             if not hits or hits[0].score < deps.threshold:
+                if profile != before:  # a statement about the user, not an unanswerable question
+                    return finish("smalltalk", copy.PROFILE_ACK_TEXT, [], profile)
                 rec["fallback"] = True
                 return finish("fallback", copy.FALLBACK_TEXT, [], profile)
 

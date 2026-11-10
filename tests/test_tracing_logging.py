@@ -7,7 +7,7 @@ from taxmate.logging_utils import log_turn
 
 def settings(**kw):
     base = dict(openai_api_key="x", langfuse_public_key=None, langfuse_secret_key=None,
-                langfuse_host="https://cloud.langfuse.com", chat_model="m", embed_model="e", log_level="INFO")
+                langfuse_base_url="https://cloud.langfuse.com", chat_model="m", embed_model="e", log_level="INFO")
     base.update(kw)
     return Settings(**base)
 

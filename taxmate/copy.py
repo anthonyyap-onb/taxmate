@@ -18,3 +18,5 @@ TOO_LONG_TEXT = "That message is too long — please keep it under 2,000 charact
 DISCLAIMER = ("TaxMate gives general information based on BIR issuances — not legal or CPA advice. Figures are "
               "estimates. File officially through eBIRForms/eFPS, and consult a CPA or your RDO for your specific case.")
 MISSING_CONFIG = "TaxMate isn't configured yet. Missing: {missing}. Add them to `.env` (local) or the app's Secrets (Streamlit Cloud)."
+PROFILE_ACK_TEXT = ("Got it — I've noted that in your tax profile (see the sidebar). "
+                    "What would you like to know about your taxes?")

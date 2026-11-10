@@ -142,3 +142,17 @@ def test_record_has_required_fields():
     assert REQUIRED <= set(r.record) and r.record["prompt_version"] == PROMPT_VERSION
     assert set(r.record["latency_ms"]) == {"total", "guard", "profile", "retrieval", "generation"}
     assert r.record["retrieved"][0]["chunk_id"] == CHUNK.chunk_id and "text" in r.record["retrieved"][0]
+
+
+def test_profile_statement_with_no_relevant_sources_is_acknowledged_not_fallback():
+    calls = []
+    deps = fake_deps(calls, extract_profile=lambda m, p: ProfileUpdate(tax_regime="8_percent"),
+                     retrieve=lambda q, k: [ScoredChunk(CHUNK, 0.2)])
+    r = run_turn("I'm on 8%", [], TaxProfile(), deps, "s")
+    assert r.kind == "smalltalk" and r.text == copy.PROFILE_ACK_TEXT and r.profile.tax_regime == "8_percent"
+    assert r.record["fallback"] is False and "generate" not in names(calls)
+
+
+def test_low_score_without_profile_change_still_falls_back():
+    r = run_turn("estate tax?", [], TaxProfile(), fake_deps([], retrieve=lambda q, k: [ScoredChunk(CHUNK, 0.2)]), "s")
+    assert r.kind == "fallback" and r.record["fallback"] is True

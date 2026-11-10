@@ -1,9 +1,10 @@
 """Structured tax profile kept in session memory and shown in the sidebar."""
 from __future__ import annotations
 
+import re
 from typing import Callable, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 TaxpayerType = Literal["freelancer_professional", "sole_proprietor", "mixed_income"]
 Regime = Literal["8_percent", "graduated"]
@@ -53,14 +54,52 @@ class ProfileUpdate(BaseModel):
     deduction_method: Optional[Deduction] = None
 
 
+class Fact(BaseModel):
+    field: Literal["taxpayer_type", "tax_regime", "income_source", "under_3m", "deduction_method"]
+    value: str
+    quote: str  # the user's exact words that state this fact
+
+
+class _Extraction(BaseModel):
+    facts: list[Fact]
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"\s+", " ", s).strip().casefold()
+
+
+def facts_to_update(message: str, facts: list[Fact]) -> ProfileUpdate:
+    """Keep only facts whose quote appears verbatim in the message and whose value is valid for the field."""
+    msg, fields = _norm(message), {}
+    for f in facts:
+        quote = _norm(f.quote)
+        if not quote or quote not in msg:
+            continue
+        try:
+            ProfileUpdate(**{f.field: f.value})
+        except ValidationError:
+            continue
+        fields[f.field] = f.value
+    return ProfileUpdate(**fields)
+
+
 def merge_profile(p: TaxProfile, u: ProfileUpdate) -> TaxProfile:
     changes = {k: v for k, v in u.model_dump().items() if v is not None}
     return p.model_copy(update=changes)
 
 
 _EXTRACT_SYSTEM = """You update a Philippine taxpayer's profile from their latest chat message.
-Fill a field ONLY if the user's latest message explicitly states or corrects it. Never infer or guess;
-leave everything else null.
+Fill a field ONLY if the user's latest message explicitly states or corrects a fact about THEMSELVES for that
+exact field. Never infer, guess, or pick a "likely" value; leave everything else null. Most messages fill 0-2 fields.
+Rules:
+- Questions are not statements. "Can I use the 8%?", "Pwede ba ako mag 8%?", "Should I pick OSD?" set NOTHING
+  for tax_regime / deduction_method; the user is asking, not telling you their choice.
+- tax_regime is set only when the user says they chose/opted for/are on a regime ("I opted for 8%", "naka-graduated ako").
+- deduction_method is set only when the user says they use OSD or itemized. Income level or occupation never implies it.
+- Do not derive one field from another (e.g. income under 3M does not imply 8%; "freelancer" alone does not imply
+  income_source unless they say they have no employer / are purely self-employed, or mention an employer).
+Example: "I'm a freelance designer, self-employed, earning about 1.2M a year" ->
+  taxpayer_type=freelancer_professional, income_source=purely_self_employed, under_3m=yes; everything else null.
 Fields:
 - taxpayer_type: freelancer_professional (freelancer, consultant, professional, self-employed service provider),
   sole_proprietor (owns a registered business/shop), mixed_income (employee who also freelances/has a business).
@@ -68,7 +107,9 @@ Fields:
 - income_source: purely_self_employed, or mixed (also earns compensation from an employer).
 - under_3m: yes if annual gross sales/receipts are at or below PHP 3,000,000, no if above.
 - deduction_method: osd (Optional Standard Deduction, 40%) or itemized.
-Messages may be in English, Filipino, or Taglish."""
+Messages may be in English, Filipino, or Taglish.
+Return a list of facts. For each fact give the field, its value, and `quote`: the user's exact words (copied verbatim
+from the latest message) that state it. No supporting quote means no fact. Return an empty list when nothing is stated."""
 
 
 def make_profile_extractor(client, model: str) -> Callable[[str, TaxProfile], ProfileUpdate]:
@@ -80,8 +121,9 @@ def make_profile_extractor(client, model: str) -> Callable[[str, TaxProfile], Pr
                 {"role": "system", "content": _EXTRACT_SYSTEM},
                 {"role": "user", "content": f"Current profile: {current.model_dump_json()}\n\nLatest message: {message}"},
             ],
-            response_format=ProfileUpdate,
+            response_format=_Extraction,
         )
-        return completion.choices[0].message.parsed or ProfileUpdate()
+        parsed = completion.choices[0].message.parsed
+        return facts_to_update(message, parsed.facts) if parsed else ProfileUpdate()
 
     return extract
