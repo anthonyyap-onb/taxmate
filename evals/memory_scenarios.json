@@ -1,0 +1,27 @@
+[
+  {"id": "M1", "description": "Regime stated early is applied to a later deduction question",
+   "turns": [
+     {"user": "Hi, I'm a freelance graphic designer and I opted for the 8% income tax rate.",
+      "expect_profile": {"taxpayer_type": "freelancer_professional", "tax_regime": "8_percent"}, "expect_kind": null, "expect_text_contains_any": null},
+     {"user": "What is Form 2307?", "expect_profile": {"tax_regime": "8_percent"}, "expect_kind": "answer", "expect_text_contains_any": null},
+     {"user": "Can I deduct the cost of my new laptop?", "expect_profile": {"tax_regime": "8_percent"}, "expect_kind": "answer",
+      "expect_text_contains_any": ["8%", "not deduct", "cannot", "no deduction", "not allowed"]}
+   ]},
+  {"id": "M2", "description": "Unknown regime triggers a clarifying question",
+   "turns": [
+     {"user": "Can I deduct my office rent from my taxes?", "expect_profile": {"tax_regime": "unknown"}, "expect_kind": "clarify",
+      "expect_text_contains_any": ["8%", "graduated"]}
+   ]},
+  {"id": "M3", "description": "User correction flips the profile",
+   "turns": [
+     {"user": "I'm a freelance writer on the 8% rate.", "expect_profile": {"tax_regime": "8_percent"}, "expect_kind": null, "expect_text_contains_any": null},
+     {"user": "Sorry, actually I'm on graduated rates, not 8%.", "expect_profile": {"tax_regime": "graduated"}, "expect_kind": null, "expect_text_contains_any": null}
+   ]},
+  {"id": "M4", "description": "Mixed income stated early is applied to the P250k reduction question",
+   "turns": [
+     {"user": "I have a full-time job and I also do freelance web development on the side.",
+      "expect_profile": {"income_source": "mixed"}, "expect_kind": null, "expect_text_contains_any": null},
+     {"user": "If I choose the 8% rate for my freelance income, can I subtract the 250,000 first?", "expect_profile": {"income_source": "mixed"}, "expect_kind": "answer",
+      "expect_text_contains_any": ["not entitled", "no longer", "mixed", "cannot", "not allowed"]}
+   ]}
+]

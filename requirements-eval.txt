@@ -3,3 +3,4 @@ langchain-openai==1.7.4
 pandas==3.1.1
 pytest==9.2.0
 ragas==0.4.3
+langchain-community==0.3.31  # ragas 0.4.3 imports langchain_community.chat_models.vertexai, removed in 0.4
