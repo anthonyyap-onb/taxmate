@@ -19,3 +19,39 @@ def test_rmc50_pdf_not_used():
 
 def test_chunks_have_metadata_and_text():
     assert all(c.title and c.issued and c.section and len(c.text.strip()) >= 40 for c in CHUNKS)
+
+
+def test_corpus_files_exist_for_every_doc():
+    from pathlib import Path
+    assert all((Path("corpus") / f"{d['doc_id']}.jsonl").is_file() for d in DOCS)
+
+
+def test_loads_from_corpus_without_source_files(tmp_path):
+    import shutil
+    shutil.copytree("corpus", tmp_path / "corpus")  # no bir-data/ in tmp_path
+    chunks = load_chunks(tmp_path)
+    assert len(chunks) == len(CHUNKS) and {c.doc_id for c in chunks} == {d["doc_id"] for d in DOCS}
+
+
+def _records(doc_id):
+    import json
+    from pathlib import Path
+    return [json.loads(l) for l in (Path("corpus") / f"{doc_id}.jsonl").read_text(encoding="utf-8").splitlines()]
+
+
+def test_page_footers_stripped():
+    import re
+    footer = re.compile(r"^\s*\d+\s*/\s*\d+\s*$", re.MULTILINE)
+    assert not any(footer.search(r["text"]) for d in DOCS for r in _records(d["doc_id"]))
+
+
+def test_no_intra_word_spaces_from_pdf_extraction():
+    text = "\n".join(r["text"] for d in DOCS for r in _records(d["doc_id"]))
+    for broken in ["s hall", "incom e", "c hosen", "i mplements", "investm ent", "thre shold"]:
+        assert broken not in text, broken
+
+
+def test_rr11_p32_has_no_phantom_list_marker():
+    p32 = next(r["text"] for r in _records("RR-11-2018") if r["section"] == "p32")
+    import re
+    assert not re.search(r"(?<![\d,.])6\.\s", p32)  # standalone "6." marker, not e.g. "2,166.73"
