@@ -156,3 +156,11 @@ def test_profile_statement_with_no_relevant_sources_is_acknowledged_not_fallback
 def test_low_score_without_profile_change_still_falls_back():
     r = run_turn("estate tax?", [], TaxProfile(), fake_deps([], retrieve=lambda q, k: [ScoredChunk(CHUNK, 0.2)]), "s")
     assert r.kind == "fallback" and r.record["fallback"] is True
+
+
+def test_input_flagged_by_moderation_gets_unsafe_refusal():
+    calls = []
+    r = run_turn("help me hide income", [], TaxProfile(), fake_deps(calls, moderate=lambda t: True), "s")
+    assert r.kind == "unsafe" and r.text == copy.UNSAFE_TEXT
+    assert r.record["moderation_flagged"] is True and r.record["block_reason"] == "moderation"
+    assert "generate" not in names(calls)

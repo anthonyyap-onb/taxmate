@@ -98,7 +98,7 @@ def run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: Dep
             if verdict.blocked:
                 rec["blocked"], rec["block_reason"] = True, verdict.reason
                 rec["moderation_flagged"] = verdict.category == "moderation"
-                if verdict.category == "unsafe":
+                if verdict.category in ("unsafe", "moderation"):
                     return finish("unsafe", copy.UNSAFE_TEXT, [], profile)
                 return finish("blocked", copy.BLOCKED_TEXT, [], profile)
 
