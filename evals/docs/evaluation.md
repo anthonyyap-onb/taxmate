@@ -76,7 +76,7 @@ Each question is listed with its diagnosis from the stored response, the retriev
 | GQ13 *"Why do I need to give my client a copy of my COR…?"* | 0.43 / 0.52 / 1.00 / 1.00 | **Prompt / judge strictness** | Correct and complete against the reference, with perfect retrieval. Partial faithfulness credit, as in GQ18. |
 
 **Pattern.**
-1. **15/30** deliberate answers score answer relevancy exactly 0.00, against 2/30 for baseline. Each of them ends with a standalone *"Please verify with a CPA or your RDO."* line (prompt rule 8). RAGAS rates such answers *noncommittal* and scores them 0, even when the content is correct, e.g. GQ03. This is the most common root cause and is the target of the improvement below.
+1. **14/30** deliberate answers score answer relevancy exactly 0.00, against 2/30 for baseline. Each of them ends with a standalone *"Please verify with a CPA or your RDO."* line (prompt rule 8). RAGAS rates such answers *noncommittal* and scores them 0, even when the content is correct, e.g. GQ03. This is the most common root cause and is the target of the improvement below.
 2. Two retrieval misses (GQ23 chunking, GQ-EOPT staleness) cause the only *wrong* answers.
 
 _Langfuse screenshots of the GQ23 and GQ-EOPT traces: `logs/trace-gq23.png`, `logs/trace-gq-eopt.png`._
@@ -88,3 +88,41 @@ The threshold was tuned on golden-set phrasing, but natural phrasings can land j
 - guardrail case G16, a 2551Q deadline question prefixed with *"Email me the answer at…"*, scored 0.459.
 
 Both got the safe fallback instead of an answer, so the cost is helpfulness, not correctness.
+
+## Targeted improvement (v1 → v2)
+
+**Hypothesis (written before the change).** The most common root cause among low scorers is prompt rule 8. It makes every answer end with a standalone line, *"Please verify with a CPA or your RDO."*, and RAGAS's answer-relevancy judge rates such answers *noncommittal*, scoring them 0: 14/30 deliberate answers score exactly 0.00, against 2/30 for baseline.
+
+The planned change:
+- remove rule 8 from the deliberate prompt, so the model answers only the question;
+- show the reminder as a fixed caption under every answer in the UI, so users still always see it, now as UI text rather than model output;
+- bump `PROMPT_VERSION` to `v2`.
+
+Expected results:
+- answer relevancy rises substantially, towards or above baseline's 0.737;
+- faithfulness rises slightly, because there is no longer an unsupported closing claim;
+- context precision and recall stay the same, because retrieval is untouched;
+- guardrail and memory pass rates stay the same.
+
+**Result.** `python -m evals.run_ragas --run v2-no-closing-disclaimer --variant deliberate` writes to `evals/results/v2-no-closing-disclaimer/`; the suites are in `guard-v2/` and `memory-v2/`.
+
+| | baseline prompt | v1 deliberate | **v2 deliberate (no closing disclaimer)** |
+|---|---|---|---|
+| Faithfulness | 0.725 | 0.643 | **0.834** |
+| Answer relevancy | 0.737 | 0.440 | **0.799** |
+| Context precision | 0.876 | 0.856 | 0.879 |
+| Context recall | 0.933 | 0.933 | 0.933 |
+| Answers with relevancy exactly 0 | 2/30 | 14/30 | **0/30** |
+| In-corpus fallback rate | 3.3% | 0% | 0% |
+| Out-of-corpus declined | 3/4 | 4/4 | 4/4 |
+| Guardrail suite | 16/16 | 16/16 | 16/16 |
+| Memory suite (turns) | 7/8 | 7/8 | 7/8 |
+
+**Interpretation.**
+- **The hypothesis held.** Answer relevancy rose from 0.440 to 0.799, and no answer scores 0 any more. GQ03, a correct answer that scored 0.00 in v1, now scores 0.78.
+- **Faithfulness rose more than expected**, from 0.643 to 0.834. Without the closing line, the judge no longer counts an unsupported "verify with a CPA" claim in every answer, and answers are shorter and stay on the sources.
+- **Retrieval metrics are unchanged** (precision moves within judge noise), as expected, since retrieval was not touched. Guardrail and memory results are also unchanged.
+- **v2 now beats the baseline prompt on every metric** while keeping its 4/4 out-of-corpus refusals, so v2 is the shipped default (`PROMPT_VERSION = "v2"`).
+- **Users still see the reminder:** it is a fixed caption under every answer (`copy.VERIFY_NOTE`, pinned by `test_answers_show_verify_note_but_refusals_do_not`), plus the sidebar disclaimer.
+
+**What it did not fix.** GQ23 is still wrong: it invents an April 15 first-quarter deadline and a Q4 1701Q, because the deadlines chunk isn't retrieved. Its answer relevancy is now 1.00, a reminder that relevancy measures whether the answer is *on-topic*, not whether it is *correct*. Faithfulness (0.17) and context recall (0.00) still flag it. The cause is retrieval (chunking), which this change didn't touch; it is the next candidate improvement, along with the threshold limitation above.

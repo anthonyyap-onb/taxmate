@@ -39,11 +39,11 @@ Runs: `evals/results/baseline-prompt/` and `evals/results/v1-deliberate/` (`resu
 
 For a tax assistant, this is the most important behavioural difference.
 
-**2. Deliberate's CPA/RDO line drags answer relevancy to 0 on correct answers (GQ03, GQ07, and 13 others).**
+**2. Deliberate's CPA/RDO line drags answer relevancy to 0 on correct answers (GQ03, GQ07, and 12 others).**
 
 GQ03, *"How do I avail of the 8% income tax rate and when is the deadline to choose it?"*: the deliberate answer is correct and cited (Forms 1901/1905, on or before May 15, irrevocable), but it scored **0.00** relevancy. Baseline's near-identical content scored 0.74.
 
-RAGAS answer relevancy gives 0 when the judge rates an answer *noncommittal*, and the standalone closing line *"Please verify with a CPA or your RDO."* reads as hedging. Supporting evidence: GQ15, where the reminder is folded into a sentence, scored 0.94. 15 of the 30 deliberate answers scored exactly 0.00; baseline had 2. Fixing this is the targeted improvement in `evaluation.md`.
+RAGAS answer relevancy gives 0 when the judge rates an answer *noncommittal*, and the standalone closing line *"Please verify with a CPA or your RDO."* reads as hedging. Supporting evidence: GQ15, where the reminder is folded into a sentence, scored 0.94. 14 of the 30 deliberate answers scored exactly 0.00; baseline had 2. Fixing this is the targeted improvement in `evaluation.md`.
 
 **3. Baseline once fell back on an in-corpus question (GQ01).**
 
@@ -52,3 +52,13 @@ RAGAS answer relevancy gives 0 when the judge rates an answer *noncommittal*, an
 ## Why `deliberate` stays the default
 
 It is the only variant that declined all 4 out-of-corpus questions instead of inventing tax rates with fake citations. Its lower RAGAS answer scores come mostly from the CPA/RDO reminder line, which is a measured, fixable artifact, not from wrong content. A confident wrong answer is the worst outcome for a tax assistant.
+
+## Update: v2
+
+Rule 8 was removed in `PROMPT_VERSION = v2`; the CPA/RDO reminder is now a fixed UI caption under each answer. Deliberate v2 scores:
+- faithfulness **0.834**;
+- answer relevancy **0.799**;
+- context precision 0.879;
+- context recall 0.933.
+
+That beats baseline on every metric, while still declining 4/4 out-of-corpus questions. Full before/after: `evaluation.md` → *Targeted improvement*.

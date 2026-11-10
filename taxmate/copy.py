@@ -20,3 +20,4 @@ DISCLAIMER = ("TaxMate gives general information based on BIR issuances — not 
 MISSING_CONFIG = "TaxMate isn't configured yet. Missing: {missing}. Add them to `.env` (local) or the app's Secrets (Streamlit Cloud)."
 PROFILE_ACK_TEXT = ("Got it — I've noted that in your tax profile (see the sidebar). "
                     "What would you like to know about your taxes?")
+VERIFY_NOTE = "ℹ️ General information from BIR issuances — verify with a CPA or your RDO before filing."

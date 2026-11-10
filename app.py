@@ -74,6 +74,8 @@ def render_message(msg: dict) -> None:
             st.error(msg["content"])
         else:
             st.markdown(msg["content"])
+        if kind == "answer":
+            st.caption(copy.VERIFY_NOTE)
         render_sources(msg.get("sources", []))
 
 

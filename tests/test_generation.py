@@ -43,3 +43,9 @@ def test_strict_adds_citation_instruction():
 def test_sources_block_shows_issued_dates():
     msgs = build_messages("q", [], TaxProfile(), [sc("EOPT-FLYER", "p1")], "deliberate", False)
     assert "(issued 2024)" in "".join(m["content"] for m in msgs)
+
+
+def test_deliberate_prompt_v2_does_not_ask_model_for_cpa_reminder():
+    from taxmate.prompts import PROMPT_VERSION, SYSTEM_PROMPTS
+    assert PROMPT_VERSION == "v2"
+    assert "remind" not in SYSTEM_PROMPTS["deliberate"].lower()

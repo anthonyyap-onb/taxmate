@@ -4,7 +4,7 @@ from __future__ import annotations
 from taxmate.profile import TaxProfile
 from taxmate.types import ScoredChunk, Turn
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 HISTORY_TURNS = 10
 
 SYSTEM_PROMPTS: dict[str, str] = {
@@ -21,8 +21,7 @@ Rules:
 4. Ask a clarifying question only when the sources DO cover the topic AND the correct answer differs depending on a profile field that is "unknown" (e.g., deductions depend on tax_regime). Then set type to "clarify" and ask ONE short question to fill that field, with no citations. Never clarify when the sources don't cover the topic (follow rule 1 instead), when known profile fields already settle the answer (e.g., on the 8% rate no business expenses are deductible, whatever the income source), or to ask for amounts or values.
 5. Do not present computed tax amounts as authoritative figures; explain the rule instead.
 6. When sources conflict, prefer the one with the more recent issued date and say that the newer issuance applies.
-7. Plain language, at most 180 words. Set type to "answer" for answers.
-8. End answers with one short line reminding the user to verify with a CPA or their RDO.""",
+7. Plain language, at most 180 words. Set type to "answer" for answers. Answer the question directly; do not add closing disclaimers (the app shows its own).""",
 }
 
 _STRICT = ("Your previous answer lacked valid citations. Every factual sentence must cite [S#] "
