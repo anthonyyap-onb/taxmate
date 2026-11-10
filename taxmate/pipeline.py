@@ -21,7 +21,7 @@ MAX_INPUT_CHARS = 2000
 @dataclass
 class Deps:
     moderate: Callable[[str], bool]
-    classify_topic: Callable[[str], str]
+    classify_topic: Callable[[str, str | None], str]  # (message, TaxMate's previous message or None)
     extract_profile: Callable[[str, TaxProfile], ProfileUpdate]
     rewrite_query: Callable[[list[Turn], str], str]
     retrieve: Callable[[str, int], list[ScoredChunk]]
@@ -93,7 +93,9 @@ def run_turn(user_text: str, history: list[Turn], profile: TaxProfile, deps: Dep
     with tracing.trace_context(session_id=session_id, metadata={"variant": variant}):
         try:
             with timer.stage("guard"):
-                verdict = check_input(masked, deps.moderate, deps.classify_topic)
+                # A bare reply to a clarifying question ("purely compensation") is only on-topic in context.
+                prev = next((t.content for t in reversed(history) if t.role == "assistant"), None)
+                verdict = check_input(masked, deps.moderate, lambda t: deps.classify_topic(t, prev))
             rec["topic_category"] = verdict.category
             if verdict.blocked:
                 rec["blocked"], rec["block_reason"] = True, verdict.reason

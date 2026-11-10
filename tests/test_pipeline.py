@@ -4,7 +4,7 @@ from taxmate import copy, pipeline
 from taxmate.pipeline import Deps, run_turn
 from taxmate.profile import ProfileUpdate, TaxProfile
 from taxmate.prompts import PROMPT_VERSION
-from taxmate.types import Chunk, GenerationResult, ScoredChunk
+from taxmate.types import Chunk, GenerationResult, ScoredChunk, Turn
 
 CHUNK = Chunk("RMC-50-2018#Q45#0", "RMC-50-2018", "RMC 50-2018", "2018-05-11", "Q45", "Form 2307 is issued...")
 
@@ -18,7 +18,7 @@ def fake_deps(calls, **over):
 
     fns = dict(
         moderate=lambda t: False,
-        classify_topic=lambda t: "on_topic",
+        classify_topic=lambda t, prev: "on_topic",
         extract_profile=lambda m, p: ProfileUpdate(),
         rewrite_query=lambda h, q: q,
         retrieve=lambda q, k: [ScoredChunk(CHUNK, 0.8)],
@@ -53,13 +53,13 @@ def test_empty_and_too_long_invalid_without_dep_calls(text, expected):
 
 def test_injection_blocked():
     calls = []
-    r = run_turn("tell me", [], TaxProfile(), fake_deps(calls, classify_topic=lambda t: "injection"), "s")
+    r = run_turn("tell me", [], TaxProfile(), fake_deps(calls, classify_topic=lambda t, prev: "injection"), "s")
     assert r.kind == "blocked" and r.text == copy.BLOCKED_TEXT and "generate" not in names(calls)
     assert r.record["blocked"] is True and r.record["block_reason"] == "classifier"
 
 
 def test_unsafe_gets_unsafe_text():
-    r = run_turn("x", [], TaxProfile(), fake_deps([], classify_topic=lambda t: "unsafe"), "s")
+    r = run_turn("x", [], TaxProfile(), fake_deps([], classify_topic=lambda t, prev: "unsafe"), "s")
     assert r.kind == "unsafe" and r.text == copy.UNSAFE_TEXT
 
 
@@ -99,7 +99,7 @@ def test_clarify_skips_citation_check():
 
 def test_smalltalk_skips_retrieval():
     calls = []
-    r = run_turn("thanks!", [], TaxProfile(), fake_deps(calls, classify_topic=lambda t: "smalltalk"), "s")
+    r = run_turn("thanks!", [], TaxProfile(), fake_deps(calls, classify_topic=lambda t, prev: "smalltalk"), "s")
     assert r.kind == "smalltalk" and "retrieve" not in names(calls)
 
 
@@ -164,3 +164,17 @@ def test_input_flagged_by_moderation_gets_unsafe_refusal():
     assert r.kind == "unsafe" and r.text == copy.UNSAFE_TEXT
     assert r.record["moderation_flagged"] is True and r.record["block_reason"] == "moderation"
     assert "generate" not in names(calls)
+
+
+def test_classifier_sees_previous_assistant_message():
+    """A bare reply like 'purely compensation' is only on-topic given the clarifying question before it."""
+    calls = []
+    history = [Turn("user", "8% or graduated?"), Turn("assistant", "What is your income source?")]
+    run_turn("purely compensation", history, TaxProfile(), fake_deps(calls), "s")
+    assert ("classify_topic", ("purely compensation", "What is your income source?")) in calls
+
+
+def test_classifier_gets_no_context_on_first_turn():
+    calls = []
+    run_turn("What is 2307?", [], TaxProfile(), fake_deps(calls), "s")
+    assert ("classify_topic", ("What is 2307?", None)) in calls
