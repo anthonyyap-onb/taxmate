@@ -1,0 +1,12 @@
+.env
+.streamlit/secrets.toml
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+evals/results/**/raw/
+.superpowers/
+uv.lock
+docs/
+bir-data/
+*.md
