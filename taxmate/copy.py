@@ -3,9 +3,9 @@
 GREETING = ("Hi, I'm TaxMate! I answer Philippine tax questions for freelancers and small businesses "
             "using official BIR issuances. To tailor my answers: are you a freelancer/professional or a "
             "sole proprietor, and do you know if you're on the 8% rate or graduated rates?")
-SUGGESTED_QUESTIONS = ["8% or graduated — which is better for me?",
-                       "Can I deduct my internet bill?",
-                       "What is Form 2307?"]
+SUGGESTED_QUESTIONS = ["Should I choose the 8% income tax rate or graduated rates?",
+                       "Can I deduct my internet bill on the 8% rate?",
+                       "What is BIR Form 2307 for?"]
 BLOCKED_TEXT = ("I can only help with Philippine tax questions for freelancers and small businesses — like the "
                 "8% vs. graduated rates, deductions, Form 2307, and quarterly filing. Could you ask me something along those lines?")
 UNSAFE_TEXT = ("I can't help with that. I can explain legal ways to manage your taxes, such as choosing between "

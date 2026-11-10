@@ -6,6 +6,7 @@ import argparse
 import csv
 
 from evals.common import init_live, load_jsonl, run_dir
+from taxmate import copy
 
 
 def main() -> None:
@@ -35,6 +36,11 @@ def main() -> None:
           f"out-of-corpus fallback rate at that value: {fallback_rate:.0%}")
     print(f"Reference doc retrieved in top-{deps.k}: "
           f"{sum(r['reference_doc_in_top_k'] for r in rows if r['in_corpus'])}/{len(inc)} -> {out}")
+    for q in copy.SUGGESTED_QUESTIONS:  # chips must be answerable, or clicking one shows the fallback
+        hits = deps.retrieve(q, deps.k)
+        top = hits[0].score if hits else 0.0
+        status = "ok" if top >= deps.threshold else "BELOW THRESHOLD -> fallback"
+        print(f"Chip top score {top:.3f} vs threshold {deps.threshold:.3f} [{status}]: {q}")
 
 
 if __name__ == "__main__":
