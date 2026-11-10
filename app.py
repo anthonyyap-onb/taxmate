@@ -101,14 +101,19 @@ def handle(user_text: str) -> None:
 st.title("TaxMate")
 st.caption("Philippine tax answers for freelancers and small businesses, grounded in BIR issuances.")
 
-pending = st.chat_input("Ask about 8% vs. graduated rates, deductions, Form 2307, filing…")
+def pick_chip(question: str) -> None:
+    # Callbacks run before the rerun, so the chips below are skipped on the same rerun as the click.
+    st.session_state.chip_question = question
+
+
+pending = (st.chat_input("Ask about 8% vs. graduated rates, deductions, Form 2307, filing…")
+           or st.session_state.pop("chip_question", None))
 
 render_message({"role": "assistant", "content": copy.GREETING})
 if not st.session_state.messages and not pending:
     cols = st.columns(len(copy.SUGGESTED_QUESTIONS))
     for col, q in zip(cols, copy.SUGGESTED_QUESTIONS):
-        if col.button(q, use_container_width=True):
-            pending = q
+        col.button(q, use_container_width=True, on_click=pick_chip, args=(q,))
 
 if pending:
     handle(pending)
