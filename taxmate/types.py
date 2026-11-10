@@ -22,6 +22,7 @@ class Chunk:
 class ScoredChunk:
     chunk: Chunk
     score: float
+    note: str | None = None  # e.g. a supersession notice added by the retriever
 
 
 @dataclass(frozen=True)

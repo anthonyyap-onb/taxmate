@@ -14,7 +14,7 @@ Each message goes through one guarded pipeline (`taxmate/pipeline.py`):
 2. **PII masking.** TINs, emails, and PH phone numbers are replaced before anything else sees the text.
 3. **Input guardrails.** An injection-phrase heuristic runs first, then OpenAI moderation, then a gpt-4o-mini topic classifier (on/off-topic, injection, unsafe, smalltalk).
 4. **Profile update.** Structured extraction of taxpayer type, regime, income source, ₱3M status, and deduction method. The profile is shown in the sidebar.
-5. **Retrieval.** History-aware query rewrite, then FAISS search over 238 chunks from 7 BIR documents. Below the relevance threshold, TaxMate answers "not found in my BIR sources".
+5. **Retrieval.** History-aware query rewrite, then FAISS search over 247 chunks from 7 BIR documents. Below the relevance threshold, TaxMate answers "not found in my BIR sources". For filing/payment-venue questions, the 2024 EOPT "File and Pay Anywhere" rule is always included and marked as superseding the older 2018 rules.
 6. **Generation.** Structured output: an answer with `[S#]` citations, or a clarifying question when a needed profile field is unknown.
 7. **Output checks.** A citation check (one strict retry, then fallback) and output moderation.
 8. **Logging and tracing.** One JSON log line per turn, plus a Langfuse trace.

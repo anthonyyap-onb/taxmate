@@ -14,8 +14,8 @@
 | BIR Form 1701Q guidelines | same | 10 |
 | BIR Form 1701-MS guidelines | same | 20 |
 | BIR Form 2551Q guidelines | same | 8 |
-| EOPT Act flyer | same | 9 |
-| **Total** (chunks under 40 chars dropped) | | **238** |
+| EOPT Act flyer | one chunk per headed topic (e.g. "File and Pay Anywhere"); see `debugged-failure.md` | 18 |
+| **Total** (chunks under 40 chars dropped) | | **247** |
 
 **Retrieval.**
 - Embeddings: `text-embedding-3-small`, stored in an in-memory FAISS `IndexFlatIP` over L2-normalised vectors, which gives cosine similarity.
@@ -126,3 +126,21 @@ Expected results:
 - **Users still see the reminder:** it is a fixed caption under every answer (`copy.VERIFY_NOTE`, pinned by `test_answers_show_verify_note_but_refusals_do_not`), plus the sidebar disclaimer.
 
 **What it did not fix.** GQ23 is still wrong: it invents an April 15 first-quarter deadline and a Q4 1701Q, because the deadlines chunk isn't retrieved. Its answer relevancy is now 1.00, a reminder that relevancy measures whether the answer is *on-topic*, not whether it is *correct*. Faithfulness (0.17) and context recall (0.00) still flag it. The cause is retrieval (chunking), which this change didn't touch; it is the next candidate improvement, along with the threshold limitation above.
+
+## Current version (v3)
+
+The shipped version also includes the debugged-failure fix, described in `debugged-failure.md`:
+- the EOPT flyer is chunked by heading;
+- an EOPT supersession rule applies in retrieval;
+- prompt rule 6 is sharpened (`PROMPT_VERSION = v3`).
+
+Run `v3-eopt-supersession` scores:
+- faithfulness **0.797**;
+- answer relevancy **0.791**;
+- context precision **0.890**;
+- context recall **0.967**;
+- in-corpus fallback 3.3% (GQ01, a pre-existing flaky citation case);
+- out-of-corpus declined 4/4;
+- guardrails 16/16, memory 7/8.
+
+The threshold was re-checked after re-chunking (`threshold-v2`): 0.47 still keeps every in-corpus question, and reference-doc-in-top-4 rose to 28/30.

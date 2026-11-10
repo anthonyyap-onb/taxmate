@@ -28,7 +28,15 @@ DOCS: list[dict] = [
     {"doc_id": "2551Q-GUIDE", "source": "bir-data/Guidelines for BIR Form 2551Q.pdf",
      "title": "Guidelines for BIR Form 2551Q", "issued": "2018-01"},
     {"doc_id": "EOPT-FLYER", "source": "bir-data/EOPT Flyer.pdf",
-     "title": "Ease of Paying Taxes (EOPT) Act Flyer", "issued": "2024"},
+     "title": "Ease of Paying Taxes (EOPT) Act Flyer", "issued": "2024",
+     # The flyer is a list of short headed topics; chunk one per topic so each embeds on its own subject.
+     "headings": ["Background", "Classification of Taxpayers", "Special Concessions for Micro", "File and Pay Anywhere",
+                  "Ease of Registration", "Deductions from Gross Income", "Simplified Timing of Withholding",
+                  "Invoicing Requirements", "Value-Added Tax (VAT)", "Risk-Based Classification of VAT Refund",
+                  "Output VAT on Uncollected Receivables", "Tax Refund of Erroneously Paid Taxes",
+                  "Clarification on Certain Provisions", "Preservation of Books of Accounts",
+                  "Publication of All Tax-Related Provisions", "Other Changes in the Tax Code",
+                  "Digitalization of BIR Services", "EOPT and Digitalization Roadmap"]},
 ]
 
 MIN_CHARS = 40
@@ -118,6 +126,32 @@ def _page_chunks(doc: dict, pages: list[dict]) -> list[Chunk]:
     return chunks
 
 
+def _split_on_headings(text: str, headings: list[str]) -> list[tuple[str, str]]:
+    """Split text into (heading, body) sections at lines exactly matching a known heading.
+    Text before the first heading becomes an "Intro" section. Each body starts with its heading line."""
+    wanted, sections, name, lines = set(headings), [], "Intro", []
+    for line in text.splitlines():
+        if line.strip() in wanted:
+            if "\n".join(lines).strip():
+                sections.append((name, "\n".join(lines).strip()))
+            name, lines = line.strip(), []
+        lines.append(line)
+    if "\n".join(lines).strip():
+        sections.append((name, "\n".join(lines).strip()))
+    return sections
+
+
+def _heading_chunks(doc: dict, pages: list[dict]) -> list[Chunk]:
+    text = "\n".join(p["text"] for p in pages)
+    chunks = []
+    for name, body in _split_on_headings(text, doc["headings"]):
+        pieces = [body] if len(body) <= _SPLITTER._chunk_size else _SPLITTER.split_text(body)
+        slug = re.sub(r"[^A-Za-z0-9]+", "-", name).strip("-")
+        chunks += [Chunk(f"{doc['doc_id']}#{slug}#{i}", doc["doc_id"], doc["title"], doc["issued"], name, piece)
+                   for i, piece in enumerate(pieces)]
+    return chunks
+
+
 def load_chunks(root: Path = Path(".")) -> list[Chunk]:
     out: list[Chunk] = []
     for doc in DOCS:
@@ -125,6 +159,8 @@ def load_chunks(root: Path = Path(".")) -> list[Chunk]:
         if doc["source"].endswith(".md"):
             chunks = [Chunk(f"{doc['doc_id']}#{r['section']}#0", doc["doc_id"], doc["title"], doc["issued"],
                             r["section"], r["text"]) for r in records]
+        elif doc.get("headings"):
+            chunks = _heading_chunks(doc, records)
         else:
             chunks = _page_chunks(doc, records)
         out.extend(c for c in chunks if len(c.text.strip()) >= MIN_CHARS)

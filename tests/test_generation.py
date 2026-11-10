@@ -45,7 +45,22 @@ def test_sources_block_shows_issued_dates():
     assert "(issued 2024)" in "".join(m["content"] for m in msgs)
 
 
-def test_deliberate_prompt_v2_does_not_ask_model_for_cpa_reminder():
-    from taxmate.prompts import PROMPT_VERSION, SYSTEM_PROMPTS
-    assert PROMPT_VERSION == "v2"
+def test_deliberate_prompt_does_not_ask_model_for_cpa_reminder():
+    from taxmate.prompts import SYSTEM_PROMPTS
     assert "remind" not in SYSTEM_PROMPTS["deliberate"].lower()
+
+
+def test_deliberate_prompt_v3_tells_model_newer_issuance_supersedes_older():
+    from taxmate.prompts import PROMPT_VERSION, SYSTEM_PROMPTS
+    assert PROMPT_VERSION == "v3"
+    rule = SYSTEM_PROMPTS["deliberate"].lower()
+    assert "supersede" in rule and "issued" in rule and "eopt" in rule
+
+
+def test_sources_block_shows_supersession_note():
+    import dataclasses
+    noted = dataclasses.replace(sc("EOPT-FLYER", "File and Pay Anywhere"), note="supersedes older filing-venue rules")
+    content = "".join(m["content"] for m in build_messages("q", [], TaxProfile(), [sc("1701Q-GUIDE", "p1"), noted],
+                                                          "deliberate", False))
+    assert "[S2] Ease of Paying Taxes (EOPT) Act Flyer — File and Pay Anywhere (issued 2024) — NOTE: supersedes older filing-venue rules" in content
+    assert content.count("NOTE:") == 1
